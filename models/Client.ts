@@ -23,6 +23,10 @@ const ClientSchema = new mongoose.Schema(
         gstNo:{
             type: String
         },
+        state:{
+            type: String,
+            require: true
+        },
         orgId:{
             type: String,
             require: true

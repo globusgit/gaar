@@ -28,10 +28,6 @@ const UserSchema = new mongoose.Schema(
             type: Boolean,
             default: true
         },
-        empId:{
-            type: String,
-            require: true,
-        },
         orgId:{
             type: String,
         }

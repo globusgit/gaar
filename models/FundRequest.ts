@@ -1,8 +1,12 @@
 import mongoose from "mongoose";
 
-const PaymentInfoSchema = new mongoose.Schema(
+const FundRequestSchema = new mongoose.Schema(
   {
-    paymentType: {
+    frNo: {
+      type: String,
+      require: true,
+    },
+    frType: {
       type: String,
       require: true,
     },
@@ -16,6 +20,7 @@ const PaymentInfoSchema = new mongoose.Schema(
     },
     vertical: {
       type: String,
+      require: true,
     },
     subVertical: {
       type: String,
@@ -44,9 +49,6 @@ const PaymentInfoSchema = new mongoose.Schema(
     authorizedBy: {
       type: String,
     },
-    authorizationDate: {
-      type: Date,
-    },
     status: {
       type: String,
       require: true,
@@ -60,13 +62,13 @@ const PaymentInfoSchema = new mongoose.Schema(
     dueDate: {
       type: Date,
     },
-    paidDate: {
-      type: Date,
-    },
-    requestNo: {
+    state: {
       type: String,
     },
-    state: {
+    tenderNo: {
+      type: String,
+    },
+    tenderName: {
       type: String,
     },
     requestedById: {
@@ -86,5 +88,5 @@ const PaymentInfoSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-export default mongoose.models.PaymentInfo ||
-  mongoose.model("PaymentInfo", PaymentInfoSchema);
+export default mongoose.models.FundRequest ||
+  mongoose.model("FundRequest", FundRequestSchema);
