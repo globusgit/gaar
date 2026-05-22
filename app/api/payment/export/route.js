@@ -1,5 +1,5 @@
 import { connectDB } from "@/lib/mongoose";
-import Payment from "@/models/Payment";
+import PaymentInfo from "@/models/PaymentInfo";
 import * as XLSX from "xlsx";
 
 export async function GET(req) {
@@ -18,7 +18,7 @@ export async function GET(req) {
     ];
   }
 
-  const data = await Payment.find(query).lean();
+  const data = await PaymentInfo.find(query).lean();
 
   const worksheet = XLSX.utils.json_to_sheet(data);
   const workbook = XLSX.utils.book_new();
