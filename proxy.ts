@@ -16,7 +16,12 @@ export async function proxy(req: any) {
 
   // Role restriction
   if (pathname.startsWith("/dashboard") && token?.role !== "ADMIN") {
-    return NextResponse.redirect(new URL("/employees", req.url));
+    return NextResponse.redirect(new URL("/fund-request", req.url));
+  }
+  if (pathname.startsWith("/organizations")) {
+    if (token?.role !== "SYS_ADMIN") {
+      return NextResponse.redirect(new URL("/dashboard", req.url));
+    }
   }
 
   return NextResponse.next();

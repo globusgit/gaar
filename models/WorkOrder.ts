@@ -1,0 +1,42 @@
+import mongoose from "mongoose";
+import { unique } from "next/dist/build/utils";
+
+const WorkOrderSchema = new mongoose.Schema(
+  {
+    woNo: {
+      type: String,
+      require: true,
+      unique: true,
+    },
+    woTitle: {
+      type: String,
+    },
+    tenderNo: {
+      type: String,
+    },
+    tenderName: {
+      type: String,
+    },
+    woDate: {
+      type: Date,
+    },
+    client: {
+      type: String,
+    },
+    woValue: {
+      type: Number,
+      require: true,
+    },
+    clientId: {
+      type: String,
+    },
+    orgId: {
+      type: String,
+      require: true,
+    },
+  },
+  { timestamps: true },
+);
+
+export default mongoose.models.WorkOrder ||
+  mongoose.model("WorkOrder", WorkOrderSchema);

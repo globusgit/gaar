@@ -1,142 +1,214 @@
-"use client"
+"use client";
 
-import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
-import { Pencil } from "lucide-react"
+import { useEffect, useState, MouseEvent } from "react";
+import { useRouter } from "next/navigation";
+import { FileSpreadsheet, Pencil, PencilLine, Plus } from "lucide-react";
+
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { useSession } from "next-auth/react";
 
 export default function EmployeeList() {
-  const [data, setData] = useState<any[]>([])
-  const [search, setSearch] = useState("")
-  const [page, setPage] = useState(1)
-  const [total, setTotal] = useState(0)
+  const { data: session } = useSession();
+  const [data, setData] = useState<any[]>([]);
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [limit, setLimit] = useState(10);
 
-  const router = useRouter()
+  const router = useRouter();
+  const orgId = session?.user?.orgId;
 
   const fetchData = async () => {
-    const orgId = localStorage.getItem("orgId")
+    //const orgId = session?.user?.orgId;
 
     const res = await fetch(
-      `/api/employee/search?search=${search}&page=${page}&limit=10&orgId=${orgId}`
-    )
+      `/api/employee/search?search=${search}&page=${page}&limit=10&orgId=${orgId}`,
+    );
 
-    const json = await res.json()
-    setData(json.data)
-    setTotal(json.total)
-  }
+    const json = await res.json();
+
+    setData(json.data || []);
+    setTotal(json.total || 0);
+  };
 
   useEffect(() => {
-    fetchData()
-  }, [search, page])
+    fetchData();
+  }, [search, page]);
+
+  // ---------------- EXPORT ----------------
+  const handleExport = async () => {
+    const orgId = localStorage.getItem("orgId");
+
+    const res = await fetch(
+      `/api/employee/export?orgId=${orgId}&search=${search}`,
+    );
+
+    const blob = await res.blob();
+
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "Employees.xlsx";
+    a.click();
+  };
 
   return (
     <div className="p-6 bg-gray-100 min-h-screen">
-      
-      {/* ✅ Title Bar (Enterprise Style) */}
+      {/* Title */}
       <div className="bg-gradient-to-r from-cyan-300 to-cyan-900 text-white text-center py-2 rounded-md">
         <h1 className="text-lg font-semibold">Employees</h1>
       </div>
 
-       
-      
-
-      {/* ✅ Controls */}
-      <div className="flex justify-between mt-4">
-        <input
+      {/* Controls */}
+      <div className="flex justify-between items-center mt-4 gap-4">
+        <Input
           placeholder="Search employees..."
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => {
+            setSearch(e.target.value);
+            setPage(1);
+          }}
           value={search}
-          className="border px-4 py-2 rounded-lg w-1/3"
+          className="max-w-sm bg-white"
         />
+
         <div className="flex gap-2">
-          <button className="border px-4 py-2 rounded-lg hover:bg-gray-50">
-            Export
-          </button>
-          <button
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
+          <select
+            className="border rounded px-2 py-1 h-7 w-15"
+            value={limit}
+            onChange={(e) => {
+              setPage(1);
+              setLimit(Number(e.target.value));
+            }}
+          >
+            <option value={5}>5</option>
+            <option value={10}>10</option>
+            <option value={20}>20</option>
+          </select>
+          <Button
+            onClick={handleExport}
+            variant="ghost"
+            size="icon"
+            title="Export to Excel"
+          >
+            <FileSpreadsheet className="h-5 w-5 text-green-700" />
+          </Button>
+
+          <Button
             onClick={() => router.push("/employees/create")}
+            variant="ghost"
+            size="icon"
+            title="Create Employee"
+            className="bg-cyan-900 hover:bg-cyan-600 font-bold text-white text-sm h-7 w-25 align-middle"
           >
-            + Create
-          </button>
+            <Plus className="h-4 w-4 mr-2" />
+            Employee
+          </Button>
         </div>
       </div>
 
-      {/* ✅ Table */}
-      <div className="bg-white rounded-xl shadow overflow-hidden">
-        
-        {/* Header */}
-        <div className="grid grid-cols-[60px_80px_1fr_120px_1.5fr_120px_140px] gap-4 px-6 py-3 bg-gray-50 border-b text-sm font-semibold text-gray-600">
-          <div>Edit</div>
-          <div>Photo</div>
-          <div>Name</div>
-          <div>Emp ID</div>
-          <div>Email</div>
-          <div>Phone</div>
-          <div>Designation</div>
-        </div>
+      {/* Table */}
+      <div className="mt-4 bg-white rounded-xl shadow border overflow-hidden">
+        <Table>
+          <TableHeader className="sticky top-0 bg-cyan-200 z-20 shadow-sm">
+            <TableRow>
+              <TableHead className="w-[70px]">Edit</TableHead>
+              <TableHead className="w-[90px]">Photo</TableHead>
+              <TableHead>Name</TableHead>
+              <TableHead>Emp ID</TableHead>
+              <TableHead>Email</TableHead>
+              <TableHead>Phone</TableHead>
+              <TableHead>Designation</TableHead>
+            </TableRow>
+          </TableHeader>
 
-        {/* Rows */}
-        {data.map((emp) => (
-          <div
-            key={emp._id}
-            className="grid grid-cols-[60px_80px_1fr_120px_1.5fr_120px_140px] gap-4 px-6 py-3 border-b items-center text-sm hover:bg-gray-50"
-          >
-            {/* ✅ Edit Icon */}
-            <div>
-              <Pencil
-                className="w-4 h-4 text-blue-600 cursor-pointer"
-                onClick={() => router.push(`/employees/edit/${emp._id}`)}
-              />
-            </div>
+          <TableBody>
+            {data.length > 0 ? (
+              data.map((emp) => (
+                <TableRow key={emp._id} className="hover:bg-gray-50">
+                  {/* Edit */}
+                  <TableCell>
+                    <button
+                      onClick={() => router.push(`/employees/${emp._id}`)}
+                      className="text-orange-500 hover:text-orange-700"
+                    >
+                      <Pencil size={16} />
+                    </button>
+                  </TableCell>
 
-            {/* Photo */}
-            <div>
-              <img
-            src={
-              emp.photo
-                ? `/api/files/employees/${emp.photo}`
-                : "/default-avatar.jpg"
-              }
-              onError={(e) => {
-                e.currentTarget.src = "/default-avatar.jpg"
-              }}
-              className="w-10 h-10 rounded-full object-cover border"
-            />
-            </div>
+                  {/* Photo */}
+                  <TableCell>
+                    <img
+                      src={
+                        emp.photo
+                          ? `/api/files/employees/${emp.photo}`
+                          : "/default-avatar.jpg"
+                      }
+                      onError={(e) => {
+                        e.currentTarget.src = "/default-avatar.jpg";
+                      }}
+                      alt={emp.name}
+                      className="w-10 h-10 rounded-full object-cover border"
+                    />
+                  </TableCell>
 
-            <div className="font-medium text-gray-800">{emp.name}</div>
-            <div>{emp.empId}</div>
-            <div className="truncate">{emp.email}</div>
-            <div>{emp.phone}</div>
-            <div>{emp.designation}</div>
-          </div>
-        ))}
+                  {/* Data */}
+                  <TableCell className="font-medium">{emp.name}</TableCell>
 
-        {data.length === 0 && (
-          <div className="p-6 text-center text-gray-500">
-            No employees found
-          </div>
-        )}
+                  <TableCell>{emp.empId}</TableCell>
+
+                  <TableCell className="max-w-[220px] truncate">
+                    {emp.email}
+                  </TableCell>
+
+                  <TableCell>{emp.phone}</TableCell>
+
+                  <TableCell>{emp.designation}</TableCell>
+                </TableRow>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell
+                  colSpan={7}
+                  className="text-center py-6 text-gray-500"
+                >
+                  No employees found
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
       </div>
 
-      {/* ✅ Pagination */}
+      {/* Pagination */}
       <div className="mt-4 flex justify-end items-center gap-3">
-        <button
+        <Button
+          variant="outline"
           disabled={page === 1}
           onClick={() => setPage(page - 1)}
-          className="px-3 py-1 border rounded disabled:opacity-50"
         >
           Prev
-        </button>
+        </Button>
 
-        <span className="text-sm font-medium">{page}</span>
+        <span className="text-sm font-medium">Page {page}</span>
 
-        <button
+        <Button
+          variant="outline"
+          disabled={page * 10 >= total}
           onClick={() => setPage(page + 1)}
-          className="px-3 py-1 border rounded"
         >
           Next
-        </button>
+        </Button>
       </div>
     </div>
-  )
+  );
 }

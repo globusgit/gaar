@@ -6,11 +6,35 @@ const PaymentInfoSchema = new mongoose.Schema(
       type: String,
       require: true,
     },
+    frType: {
+      type: String,
+      require: true,
+    },
+    woNo: {
+      type: String,
+    },
+    woTitle: {
+      type: String,
+    },
+    tenderNo: {
+      type: String,
+    },
+    tenderName: {
+      type: String,
+    },
     description: {
       type: String,
       require: true,
     },
-    amount: {
+    requestAmount: {
+      type: Number,
+      require: true,
+    },
+    paidAmount: {
+      type: Number,
+      require: true,
+    },
+    balanceAmount: {
       type: Number,
       require: true,
     },
@@ -36,6 +60,9 @@ const PaymentInfoSchema = new mongoose.Schema(
     approvedBy: {
       type: String,
       require: true,
+    },
+    approvedDate: {
+      type: Date,
     },
     isAuthorized: {
       type: Boolean,

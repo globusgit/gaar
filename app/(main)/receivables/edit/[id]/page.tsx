@@ -1,10 +1,10 @@
-"use client"
+"use client";
 
-import { useParams } from "next/navigation"
-import ReceivableForm from "@/app/_components/receivable/ReceivableForm"
+import { useParams } from "next/navigation";
+import EditReceivableForm from "@/app/_components/receivable/EditReceivableForm";
 
 export default function EditPage() {
-  const { id } = useParams()
+  const { id } = useParams();
 
-  return <ReceivableForm id={id as string} />
+  return <EditReceivableForm id={id as string} />;
 }

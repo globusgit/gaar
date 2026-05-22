@@ -1,7 +1,7 @@
-"use client"
+"use client";
 
-import ReceivableForm from "@/app/_components/receivable/ReceivableForm"
+import CreateReceivableForm from "@/app/_components/receivable/CreateReceivableForm";
 
 export default function CreatePage() {
-  return <ReceivableForm />
+  return <CreateReceivableForm />;
 }

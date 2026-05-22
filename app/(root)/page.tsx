@@ -3,7 +3,6 @@
 import { Button } from "@/components/ui/button";
 import {
   Card,
-  CardAction,
   CardContent,
   CardDescription,
   CardFooter,
@@ -14,32 +13,40 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { signIn } from "next-auth/react";
+import { getSession, signIn } from "next-auth/react";
+import { Poppins } from "next/font/google";
+
+const poppins = Poppins({
+  subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700"],
+});
 
 export default function SignIn() {
   const [form, setForm] = useState({
     username: "",
     password: "",
   });
+
   const router = useRouter();
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const signInData = {
-      username: form.username,
-      password: form.password,
-    };
-    //console.log("In handleSubmit function email: ", signInData.username);
-    //console.log("password before submit: ", signInData.password);
+
     try {
       const res = await signIn("credentials", {
-        username: signInData.username,
-        password: signInData.password,
+        username: form.username,
+        password: form.password,
         redirect: false,
       });
-      //console.log("SIGNIN RESPONSE:", res);
+
       if (res?.ok) {
-        router.push("/dashboard");
+        const session = await getSession();
+        const role = session?.user?.role;
+
+        const isPrivileged =
+          role && ["ADMIN", "SYS_ADMIN", "ACCOUNTS", "ORG_USER"].includes(role);
+
+        router.push(isPrivileged ? "/dashboard" : "/fund-request");
       } else {
         alert("Either email or password do not match!");
       }
@@ -49,26 +56,32 @@ export default function SignIn() {
   }
 
   return (
-    <div className="flex justify-center align-middle p-35">
-      <form onSubmit={(e) => handleSubmit(e)}>
-        <Card className="w-full max-w-sm">
-          <CardHeader>
-            <CardTitle>Login to your account</CardTitle>
-            <CardDescription>
-              Enter your email below to login to your account
+    <div
+      className={`${poppins.className} min-h-screen flex items-center justify-center bg-gray-100 px-4`}
+    >
+      <form onSubmit={handleSubmit} className="w-full max-w-md">
+        <Card className="shadow-xl rounded-2xl border-0 overflow-hidden">
+          {/* Header */}
+          <CardHeader className="bg-cyan-800 text-white space-y-2 px-6 py-5">
+            <CardTitle className="text-2xl font-semibold">
+              Login to your account
+            </CardTitle>
+
+            <CardDescription className="text-gray-200">
+              Enter your phone number below to login to your account
             </CardDescription>
-            <CardAction>
-              <Button variant="link">Sign Up</Button>
-            </CardAction>
           </CardHeader>
-          <CardContent>
-            <div className="flex flex-col gap-6">
+
+          {/* Body */}
+          <CardContent className="pt-6">
+            <div className="flex flex-col gap-5">
               <div className="grid gap-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="phone">Phone Number</Label>
+
                 <Input
-                  id="email"
+                  id="phone"
                   type="text"
-                  placeholder="m@example.com"
+                  placeholder="eg. 11111111"
                   value={form.username}
                   onChange={(e) =>
                     setForm({ ...form, username: e.target.value })
@@ -76,16 +89,12 @@ export default function SignIn() {
                   required
                 />
               </div>
+
               <div className="grid gap-2">
-                <div className="flex items-center">
+                <div className="flex items-center justify-between">
                   <Label htmlFor="password">Password</Label>
-                  <a
-                    href="#"
-                    className="ml-auto inline-block text-sm underline-offset-4 hover:underline"
-                  >
-                    Forgot your password?
-                  </a>
                 </div>
+
                 <Input
                   id="password"
                   type="password"
@@ -98,8 +107,13 @@ export default function SignIn() {
               </div>
             </div>
           </CardContent>
-          <CardFooter className="flex-col gap-2">
-            <Button type="submit" className="w-full">
+
+          {/* Footer */}
+          <CardFooter className="pb-6">
+            <Button
+              type="submit"
+              className="w-full h-11 text-base bg-cyan-900 hover:bg-cyan-600 text-white"
+            >
               Login
             </Button>
           </CardFooter>

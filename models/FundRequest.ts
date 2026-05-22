@@ -6,13 +6,22 @@ const FundRequestSchema = new mongoose.Schema(
       type: String,
       require: true,
     },
+    description: {
+      type: String,
+    },
     frType: {
       type: String,
       require: true,
     },
-    description: {
+    paymentType: {
       type: String,
       require: true,
+    },
+    woNo: {
+      type: String,
+    },
+    woTitle: {
+      type: String,
     },
     amount: {
       type: Number,
@@ -42,12 +51,20 @@ const FundRequestSchema = new mongoose.Schema(
       type: String,
       require: true,
     },
+    approvalDate: {
+      type: Date,
+      default: null,
+    },
     isAuthorized: {
       type: Boolean,
       default: false,
     },
     authorizedBy: {
       type: String,
+    },
+    authorizationDate: {
+      type: Date,
+      default: null,
     },
     status: {
       type: String,
@@ -79,6 +96,15 @@ const FundRequestSchema = new mongoose.Schema(
     },
     authorizedById: {
       type: String,
+    },
+    workOrderNo: {
+      type: String,
+    },
+    woDepartment: {
+      type: String,
+    },
+    bgMaturityDate: {
+      type: Date,
     },
     orgId: {
       type: String,

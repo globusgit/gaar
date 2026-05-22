@@ -6,9 +6,11 @@ import converter from "num-words";
 
 export default function AmountToWords({
   amount,
+  readOnly = false,
   onChange,
 }: {
   amount: string;
+  readOnly?: boolean;
   onChange: (val: string) => void;
 }) {
   const convertToWords = (value: string) => {
@@ -108,13 +110,12 @@ export default function AmountToWords({
 
   return (
     <div className="space-y-2">
-      <Label>Amount</Label>
-
       <Input
         type="text"
         step="0.01"
         value={amount || ""}
         placeholder="Enter amount"
+        readOnly={readOnly}
         onChange={(e) => {
           const val = e.target.value;
 
