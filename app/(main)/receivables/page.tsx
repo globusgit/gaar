@@ -143,6 +143,7 @@ export default function ReceivablesPage() {
               <TableHead></TableHead>
               <TableHead>Description</TableHead>
               <TableHead>Amount</TableHead>
+              <TableHead>Balance Amount</TableHead>
               <TableHead>Vertical</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Due Date</TableHead>
@@ -166,8 +167,8 @@ export default function ReceivablesPage() {
 
                   <TableCell>{item.description}</TableCell>
 
-                  <TableCell>{item.amount}</TableCell>
-
+                  <TableCell>₹{item.receivableAmount || 0}</TableCell>
+                  <TableCell>₹{item.balanceReceivableAmount || 0}</TableCell>
                   <TableCell>{item.vertical}</TableCell>
 
                   <TableCell>{item.status}</TableCell>

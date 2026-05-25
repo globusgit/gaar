@@ -78,7 +78,7 @@ export default function EditReceivableForm({ id }: { id: string }) {
       .then((data) => {
         setTransactions(data?.data || []);
       });
-  }, [id, transactions]);
+  }, [id]);
 
   const handleUpdate = async () => {
     await fetch(`/api/receivable/${id}`, {

@@ -68,8 +68,11 @@ export default function EditClientPage() {
 
   // Fetch states dropdown list
   const fetchStates = async () => {
+    const stateListName = "State";
     try {
-      const res = await fetch("/api/lists/states");
+      const res = await fetch(
+        `/api/system-list?listName=${stateListName}&orgId=${"ORG1"}`,
+      );
 
       if (!res.ok) {
         throw new Error("Failed to fetch states");
@@ -77,7 +80,7 @@ export default function EditClientPage() {
 
       const data = await res.json();
 
-      setStates(data || []);
+      setStates(data?.data || []);
     } catch (error) {
       console.error(error);
     }
@@ -218,8 +221,8 @@ export default function EditClientPage() {
 
               <SelectContent>
                 {states.map((item: any) => (
-                  <SelectItem key={item.value} value={item.value}>
-                    {item.label}
+                  <SelectItem key={item._id} value={item.listItem}>
+                    {item.listItem}
                   </SelectItem>
                 ))}
               </SelectContent>

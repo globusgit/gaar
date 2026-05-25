@@ -254,7 +254,7 @@ export default function ClientsPage() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={() => router.push(`/clients/edit/${row._id}`)}
+                      onClick={() => router.push(`/clients/${row._id}`)}
                     >
                       <Pencil className="h-4 w-4" />
                     </Button>

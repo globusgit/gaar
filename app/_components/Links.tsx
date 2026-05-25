@@ -35,6 +35,7 @@ const Links = () => {
   const filteredMenu = menuItems.filter((item) => {
     if (!role) return false;
 
+    // Non privileged roles → only Fund Request
     const isPrivileged = [
       "ADMIN",
       "SYS_ADMIN",
@@ -42,14 +43,20 @@ const Links = () => {
       "ORG_USER",
     ].includes(role);
 
-    // for all other roles, show only Fund Request
     if (!isPrivileged) {
-      return item.route === "/fund-request";
+      return ["/dashboard", "/fund-request"].includes(item.route);
     }
 
+    // Organizations only for SYS_ADMIN
     if (item.route === "/organizations" && role !== "SYS_ADMIN") {
       return false;
     }
+
+    // Users & Settings only for ORG_USER
+    if (["/users", "/settings"].includes(item.route) && role !== "ORG_USER") {
+      return false;
+    }
+
     return true;
   });
 

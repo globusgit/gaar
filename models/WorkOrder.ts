@@ -20,8 +20,29 @@ const WorkOrderSchema = new mongoose.Schema(
     woDate: {
       type: Date,
     },
+    woType: {
+      type: String,
+    },
+    projectCompletionDate: {
+      type: Date,
+    },
+    actualStartDate: {
+      type: Date,
+    },
+    actualEndDate: {
+      type: Date,
+    },
+    status: {
+      type: String,
+    },
     client: {
       type: String,
+    },
+    bgAmount: {
+      type: Number,
+    },
+    bgMaturityDate: {
+      type: Date,
     },
     woValue: {
       type: Number,
