@@ -59,7 +59,7 @@ const ReceivableInfoSchema = new mongoose.Schema(
     tenderNo: {
       type: String,
     },
-    tenderName: {
+    tenderDesc: {
       type: String,
     },
     state: {

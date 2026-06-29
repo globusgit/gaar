@@ -8,7 +8,7 @@ const TenderInfoSchema = new mongoose.Schema(
       require: true,
       unique: true,
     },
-    tenderName: {
+    description: {
       type: String,
     },
     tenderDate: {
@@ -17,7 +17,39 @@ const TenderInfoSchema = new mongoose.Schema(
     tenderType: {
       type: String,
     },
+    preBidMeetingDate: {
+      type: Date,
+    },
+    /** This is important date as this is the date on or before we should submit the tender */
+    tenderSubmissionLastDate: {
+      type: Date,
+    },
+    tenderOpeningDate: {
+      type: Date,
+    },
+    /**
+     * status field is used to determine the status of our tender. Whether we Won, Disqualified,
+     * Waiting for Bid to Open, Cancelled, Lost.
+     */
     status: {
+      type: String,
+    },
+    /*  position field is used to determine the position of our standing in tender bidding. L1, L2, L3 etc. 
+        It is used to know our position. Where did we end up? 
+    */
+    state: {
+      type: String,
+    },
+    country: {
+      type: String,
+    },
+    vertical: {
+      type: String,
+    },
+    subVertical: {
+      type: String,
+    },
+    position: {
       type: String,
     },
     emdAmount: {
@@ -29,6 +61,12 @@ const TenderInfoSchema = new mongoose.Schema(
     transactionFee: {
       type: Number,
     },
+    corpusFund: {
+      type: Number,
+    },
+    bgAmount: {
+      type: Number,
+    },
     emdPaymentDate: {
       type: Date,
     },
@@ -36,6 +74,12 @@ const TenderInfoSchema = new mongoose.Schema(
       type: Date,
     },
     transactionFeePaymentDate: {
+      type: Date,
+    },
+    corpusFundPaymentDate: {
+      type: Date,
+    },
+    bgPaymentDate: {
       type: Date,
     },
     emdPaymentStatus: {
@@ -47,10 +91,22 @@ const TenderInfoSchema = new mongoose.Schema(
     transactionFeePaymentStatus: {
       type: String,
     },
+    corpusFundPaymentStatus: {
+      type: String,
+    },
+    bgPaymentStatus: {
+      type: String,
+    },
+    bgRefundDate: {
+      type: Date,
+    },
     emdRefundDate: {
       type: Date,
     },
     emdRefundStatus: {
+      type: String,
+    },
+    bgRefundStatus: {
       type: String,
     },
     tenderingDepartment: {
@@ -61,7 +117,15 @@ const TenderInfoSchema = new mongoose.Schema(
     },
     tenderValue: {
       type: Number,
-      require: true,
+    },
+    owner: {
+      type: String,
+    },
+    remarks: {
+      type: String,
+    },
+    isMAFRequired: {
+      type: Boolean,
     },
     clientId: {
       type: String,
@@ -73,6 +137,27 @@ const TenderInfoSchema = new mongoose.Schema(
   },
   { timestamps: true },
 );
+
+TenderInfoSchema.index({
+  orgId: 1,
+  tenderNo: 1,
+});
+TenderInfoSchema.index({
+  orgId: 1,
+  description: 1,
+});
+TenderInfoSchema.index({
+  orgId: 1,
+  client: 1,
+});
+TenderInfoSchema.index({
+  orgId: 1,
+  owner: 1,
+});
+TenderInfoSchema.index({
+  orgId: 1,
+  tenderingDepartment: 1,
+});
 
 export default mongoose.models.TenderInfo ||
   mongoose.model("TenderInfo", TenderInfoSchema);

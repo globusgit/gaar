@@ -14,13 +14,19 @@ const WorkOrderSchema = new mongoose.Schema(
     tenderNo: {
       type: String,
     },
-    tenderName: {
+    tenderDesc: {
       type: String,
     },
     woDate: {
       type: Date,
     },
     woType: {
+      type: String,
+    },
+    vertical: {
+      type: String,
+    },
+    subVertical: {
       type: String,
     },
     projectCompletionDate: {
@@ -44,9 +50,18 @@ const WorkOrderSchema = new mongoose.Schema(
     bgMaturityDate: {
       type: Date,
     },
+    bgReceivedStatus: {
+      type: String,
+    },
     woValue: {
       type: Number,
       require: true,
+    },
+    country: {
+      type: String,
+    },
+    state: {
+      type: String,
     },
     clientId: {
       type: String,

@@ -26,6 +26,8 @@ export default function ReceivablesPage() {
   const [search, setSearch] = useState<string>("");
   const [page, setPage] = useState<number>(1);
   const [total, setTotal] = useState<number>(0);
+  const [sortField, setSortField] = useState("dueDate");
+  const [sortOrder, setSortOrder] = useState("desc");
 
   const [limit, setLimit] = useState<number>(10);
 
@@ -33,7 +35,7 @@ export default function ReceivablesPage() {
     const orgId = session?.user?.orgId;
 
     const res = await fetch(
-      `/api/receivable?page=${page}&limit=${limit}&search=${search}&orgId=${orgId}`,
+      `/api/receivable?page=${page}&limit=${limit}&search=${search}&orgId=${orgId}&sortField=${sortField}&sortOrder=${sortOrder}`,
     );
 
     const result = await res.json();
@@ -156,13 +158,16 @@ export default function ReceivablesPage() {
               data.map((item: any) => (
                 <TableRow key={item._id}>
                   <TableCell>
-                    <Pencil
-                      size={18}
-                      className="cursor-pointer text-orange-500 hover:text-orange-600"
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="text-orange-500 hover:text-orange-700"
                       onClick={() =>
                         router.push(`/receivables/edit/${item._id}`)
                       }
-                    />
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
                   </TableCell>
 
                   <TableCell>{item.description}</TableCell>

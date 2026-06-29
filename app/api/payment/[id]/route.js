@@ -13,6 +13,17 @@ export async function GET(req, { params }) {
 export async function PUT(req, { params }) {
   await connectDB();
   const body = await req.json();
+  const existingPayment = await PaymentInfo.findById(params.id);
+  if (!existingPayment) {
+    return NextResponse.json(
+      { error: "Payment info not found" },
+      { status: 404 },
+    );
+  }
+
+  if (existingPayment.requestedAmount !== body.requestedAmount) {
+    body.balanceAmount = body.requestedAmount - existingPayment.paidAmount;
+  }
 
   const updated = await PaymentInfo.findByIdAndUpdate(params.id, body, {
     new: true,

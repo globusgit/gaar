@@ -34,9 +34,10 @@ export default function EditFR() {
   3. Notes still work because Notes component is independent
 */
 
-  const isLocked = form.isAuthorized === true;
+  const isLocked = form.isAuthorized === true || form.status === "Rejected";
 
   const isPageReadOnly = !isAdmin || isLocked;
+
   const [paymentSearch, setPaymentSearch] = useState("");
   const [paymentResults, setPaymentResults] = useState<any[]>([]);
 
@@ -163,6 +164,21 @@ export default function EditFR() {
     router.push("/fund-request");
   };
 
+  const handleReject = async () => {
+    const updatedForm = {
+      ...form,
+      status: "Rejected",
+    };
+
+    setForm(updatedForm);
+    await fetch(`/api/fund-request/${params.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(updatedForm),
+    });
+
+    router.push("/fund-request");
+  };
   // ---------------- UI ----------------
   return (
     <div className="p-3 md:p-4 space-y-4">
@@ -639,6 +655,12 @@ export default function EditFR() {
       {/* SAVE */}
       {isAdmin && !isLocked && (
         <div className="flex justify-end sticky bottom-0 bg-white py-3 border-t">
+          <Button
+            onClick={handleReject}
+            className="bg-red-900 hover:bg-red-600"
+          >
+            Reject
+          </Button>
           <Button
             onClick={handleSave}
             className="bg-cyan-900 hover:bg-cyan-600"

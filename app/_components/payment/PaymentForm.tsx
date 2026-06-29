@@ -45,6 +45,7 @@ export default function PaymentForm({ id }: { id?: string }) {
 
   const [userResults, setUserResults] = useState<any[]>([]);
   const [showTxnForm, setShowTxnForm] = useState(false);
+  const [payToResults, setPayToResults] = useState<any[]>([]);
 
   const [transactions, setTransactions] = useState<any[]>([]);
   const [txnForm, setTxnForm] = useState<any>({
@@ -55,7 +56,17 @@ export default function PaymentForm({ id }: { id?: string }) {
     entityType: "PAYMENT",
     entityId: id,
     transactionNote: "",
+    orgId: "",
   });
+  const isAuthorized = form?.isAuthorized;
+  const isPaid = form?.status === "Paid";
+  const isBalanceZero = Number(form?.balanceAmount) <= 0;
+
+  // Lock entire payment editing if status is Paid
+  const isPaymentLocked = isPaid;
+
+  // Lock FR related fields once authorized
+  const isFRLocked = isAuthorized;
 
   const fetchList = async (listName: string) => {
     const res = await fetch(
@@ -69,10 +80,19 @@ export default function PaymentForm({ id }: { id?: string }) {
   const searchUsers = async (query: string) => {
     if (!query) return setUserResults([]);
 
-    const res = await fetch(`/api/user/search?q=${query}`);
+    const res = await fetch(`/api/user/search?q=${query}&orgId=${orgId}`);
     const data = await res.json();
 
     setUserResults(data || []);
+  };
+  /** Search for Client or Employee to make a payment */
+  const searchPayTo = async (query: string) => {
+    if (!query) return setPayToResults([]);
+
+    const res = await fetch(`/api/payment-to/search?q=${query}&orgId=${orgId}`);
+    const data = await res.json();
+
+    setPayToResults(data.data || []);
   };
 
   const fetchTransactions = async () => {
@@ -122,7 +142,7 @@ export default function PaymentForm({ id }: { id?: string }) {
 
     fetchPayment();
     fetchTransactions();
-  }, [id, transactions]);
+  }, [id]);
 
   const handleSubmit = async () => {
     const method = id ? "PUT" : "POST";
@@ -137,6 +157,9 @@ export default function PaymentForm({ id }: { id?: string }) {
     });
 
     router.push("/payments");
+  };
+  const closeTxnForm = () => {
+    setShowTxnForm(false);
   };
 
   const handleRecordTransaction = async () => {
@@ -161,7 +184,7 @@ export default function PaymentForm({ id }: { id?: string }) {
     });
 
     setShowTxnForm(false);
-
+    fetchPayment();
     fetchTransactions();
   };
 
@@ -208,7 +231,7 @@ export default function PaymentForm({ id }: { id?: string }) {
     </div>
   );
 
-  const renderTxnUserSearch = () => (
+  const renderPayToSearch = () => (
     <div className="relative">
       <Label>Paid To</Label>
 
@@ -222,26 +245,26 @@ export default function PaymentForm({ id }: { id?: string }) {
             paidTo: value,
           });
 
-          searchUsers(value);
+          searchPayTo(value);
         }}
       />
 
-      {userResults.length > 0 && (
+      {payToResults.length > 0 && (
         <div className="absolute z-50 bg-white border rounded-md shadow-md max-h-48 overflow-y-auto w-full">
-          {userResults.map((user: any) => (
+          {payToResults.map((payTo: any) => (
             <div
-              key={user._id}
+              key={payTo._id}
               className="p-2 hover:bg-gray-100 cursor-pointer"
               onClick={() => {
                 setTxnForm({
                   ...txnForm,
-                  paidTo: user.name,
+                  paidTo: payTo.name,
                 });
 
-                setUserResults([]);
+                setPayToResults([]);
               }}
             >
-              {user.name}
+              {payTo.name}
             </div>
           ))}
         </div>
@@ -266,8 +289,6 @@ export default function PaymentForm({ id }: { id?: string }) {
       0,
     );
   }, [transactions]);
-
-  const isAuthorized = form?.isAuthorized;
 
   const ReadOnlyField = ({ label, value }: { label: string; value?: any }) => (
     <div className="space-y-1">
@@ -300,6 +321,8 @@ export default function PaymentForm({ id }: { id?: string }) {
               <Label>FR Type</Label>
 
               <Input
+                readOnly={isFRLocked || isPaymentLocked}
+                className={isFRLocked || isPaymentLocked ? "bg-gray-100" : ""}
                 value={form.frType || ""}
                 onChange={(e) =>
                   setForm({
@@ -314,7 +337,12 @@ export default function PaymentForm({ id }: { id?: string }) {
               <Label>Payment Type</Label>
 
               <select
-                className="w-full border rounded-md p-2 mt-2"
+                disabled={isFRLocked || isPaymentLocked}
+                className={`w-full border rounded-md p-2 mt-2 ${
+                  isFRLocked || isPaymentLocked
+                    ? "bg-gray-100 cursor-not-allowed"
+                    : ""
+                }`}
                 value={form.paymentType || ""}
                 onChange={(e) =>
                   setForm({
@@ -412,7 +440,12 @@ export default function PaymentForm({ id }: { id?: string }) {
               <Label>Status</Label>
 
               <select
-                className="w-full border rounded-md p-2 mt-2"
+                disabled={isFRLocked || isPaymentLocked}
+                className={`w-full border rounded-md p-2 mt-2 ${
+                  isFRLocked || isPaymentLocked
+                    ? "bg-gray-100 cursor-not-allowed"
+                    : ""
+                }`}
                 value={form.status || ""}
                 onChange={(e) =>
                   setForm({
@@ -487,6 +520,7 @@ export default function PaymentForm({ id }: { id?: string }) {
 
                   <div className="mt-2">
                     <AmountToWords
+                      readOnly={isFRLocked || isPaymentLocked}
                       amount={String(form.requestAmount || "")}
                       onChange={(val) =>
                         setForm((prev: any) => ({
@@ -502,7 +536,10 @@ export default function PaymentForm({ id }: { id?: string }) {
                   <Label>Request No</Label>
 
                   <Input
-                    className="mt-2"
+                    readOnly={isFRLocked || isPaymentLocked}
+                    className={`mt-2 ${
+                      isFRLocked || isPaymentLocked ? "bg-gray-100" : ""
+                    }`}
                     value={form.requestNo || ""}
                     onChange={(e) =>
                       setForm({
@@ -703,7 +740,7 @@ export default function PaymentForm({ id }: { id?: string }) {
                 </h2>
 
                 <Button
-                  disabled={!isAuthorized}
+                  disabled={!isAuthorized || isBalanceZero || isPaymentLocked}
                   onClick={() => setShowTxnForm(!showTxnForm)}
                   className="bg-cyan-900 hover:bg-cyan-700"
                 >
@@ -711,7 +748,11 @@ export default function PaymentForm({ id }: { id?: string }) {
                   Pay
                 </Button>
               </div>
-
+              {isBalanceZero && (
+                <div className="bg-red-50 text-red-700 border border-red-200 rounded-lg px-4 py-3 text-sm">
+                  Full payment already completed. No more transactions allowed.
+                </div>
+              )}
               {!isAuthorized && (
                 <div className="bg-amber-50 text-amber-700 border border-amber-200 rounded-lg px-4 py-3 text-sm">
                   Transactions can be recorded only after authorization.
@@ -773,7 +814,7 @@ export default function PaymentForm({ id }: { id?: string }) {
                       </select>
                     </div>
 
-                    <div>{renderTxnUserSearch()}</div>
+                    <div>{renderPayToSearch()}</div>
 
                     <div className="col-span-2">
                       <Label>Transaction Note</Label>
@@ -792,6 +833,12 @@ export default function PaymentForm({ id }: { id?: string }) {
                   </div>
 
                   <div className="flex justify-end">
+                    <Button
+                      onClick={closeTxnForm}
+                      className="bg-amber-600 hover:bg-amber-500"
+                    >
+                      Cancel
+                    </Button>
                     <Button
                       onClick={handleRecordTransaction}
                       className="bg-cyan-900 hover:bg-cyan-700"
@@ -858,6 +905,7 @@ export default function PaymentForm({ id }: { id?: string }) {
               </Button>
 
               <Button
+                disabled={isPaymentLocked}
                 onClick={handleSubmit}
                 className="bg-cyan-900 hover:bg-cyan-700"
               >

@@ -1,17 +1,22 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { useSession } from "next-auth/react";
 
 export default function Notes({ user, entityType, entityId }: any) {
+  const router = useRouter();
+  const { data: session } = useSession();
   const [note, setNote] = useState("");
   const [notes, setNotes] = useState<any[]>([]);
-  const orgId = user?.orgId;
+
+  const orgId = session?.user?.orgId;
 
   const addNote = async () => {
     if (!note.trim()) return;
-
+    console.log("Adding note:", note, orgId, entityType, entityId, user);
     await fetch("/api/note", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -20,15 +25,15 @@ export default function Notes({ user, entityType, entityId }: any) {
         orgId,
         entityType,
         entityId,
-        username: user?.username,
-        loggedBy: user?.employeeName,
+        username: session?.user?.username,
+        loggedBy: session?.user?.employeeName,
         date: new Date(),
       }),
     });
 
     const newNote = {
       notes: note,
-      loggedBy: user?.employeeName || "User",
+      loggedBy: session?.user?.employeeName || "User",
       createdAt: new Date().toLocaleString(),
     };
 

@@ -67,7 +67,7 @@ export async function POST(req) {
       state,
       orgId,
       tenderNo,
-      tenderName,
+      tenderDesc,
       maturityDate,
     } = await req.json();
 
@@ -90,31 +90,13 @@ export async function POST(req) {
       requestNo,
       state,
       orgId,
+      tenderDesc,
+      tenderNo,
+      maturityDate,
     });
     const payment = await PaymentInfo.create(paymentRecordToCreate);
     console.log("Created Payment Info: " + payment);
-    if (payment) {
-      if (payment.paymentType === "BG" || payment.paymentType === "EMD") {
-        const receivableRecordToCreate = new ReceivableIno({
-          type: paymentType,
-          description,
-          amount,
-          vertical,
-          subVertical,
-          paymentFrom: paymentTo,
-          owner: "System",
-          status: "Pending",
-          receivedDate: null,
-          invoiceNo: null,
-          dueDate: maturityDate,
-          tenderNo,
-          tenderName,
-          state,
-          orgId,
-        });
-        const receivable = await ReceivableIno.create(receivableRecordToCreate);
-      }
-    }
+
     return NextResponse.json(
       { message: "Payment Info created successfully!" },
       { status: 200 },

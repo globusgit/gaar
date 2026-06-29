@@ -13,6 +13,10 @@ import { Textarea } from "@/components/ui/textarea";
 
 import AmountToWords from "../AmountToWords";
 
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+
+import { FileText, MapPinned, Briefcase } from "lucide-react";
+
 export default function CreateReceivableForm() {
   const router = useRouter();
 
@@ -195,281 +199,304 @@ export default function CreateReceivableForm() {
   );
 
   return (
-    <div className="p-4 space-y-6">
-      <div className="rounded-xl bg-gradient-to-r from-cyan-700 to-cyan-900 px-6 py-4 text-white shadow-sm">
+    <div className="p-4 space-y-12">
+      <div className="rounded-xl bg-gradient-to-r from-cyan-500 to-cyan-300 px-6 py-4 text-white shadow-sm">
         <h1 className="text-xl font-semibold">Create Receivable</h1>
       </div>
 
       <div className="space-y-6">
         {/* BASIC INFO */}
-        <div className="border rounded-xl p-6 shadow-sm space-y-6">
-          <h2 className="text-base font-semibold tracking-tight">Basic Info</h2>
+        <Card className="overflow-hidden border-0 shadow-lg rounded-2xl">
+          <CardHeader className="bg-gradient-to-r from-cyan-900 to-cyan-700 text-white py-4">
+            <CardTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              Basic Information
+            </CardTitle>
+          </CardHeader>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <Label>Type</Label>
+          <CardContent className="p-6 bg-slate-50">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <Label>Type</Label>
 
-              <select
-                className="w-full border rounded-md p-2"
-                value={form.type || ""}
-                onChange={(e) =>
-                  setForm({
-                    ...form,
-                    type: e.target.value,
-                  })
-                }
-              >
-                <option value="">Select</option>
+                <select
+                  className="w-full border rounded-md p-2"
+                  value={form.type || ""}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      type: e.target.value,
+                    })
+                  }
+                >
+                  <option value="">Select</option>
 
-                {paymentTypeList.map((v: any) => (
-                  <option key={v._id} value={v.listItem}>
-                    {v.listItem}
-                  </option>
-                ))}
-              </select>
+                  {paymentTypeList.map((v: any) => (
+                    <option key={v._id} value={v.listItem}>
+                      {v.listItem}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>{renderClientSearch("paymentFrom", "Payment From")}</div>
+
+              <div className="md:col-span-2">
+                <Label>Description</Label>
+
+                <Textarea
+                  rows={4}
+                  value={form.description || ""}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      description: e.target.value,
+                    })
+                  }
+                />
+              </div>
+
+              <div>
+                <Label>Receivable Amount</Label>
+
+                <AmountToWords
+                  amount={String(form.receivableAmount || "")}
+                  onChange={(val) =>
+                    setForm((prev: any) => ({
+                      ...prev,
+                      receivableAmount: val,
+                    }))
+                  }
+                />
+              </div>
+
+              <div>
+                <Label>State</Label>
+
+                <select
+                  className="w-full border rounded-md p-2"
+                  value={form.state || ""}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      state: e.target.value,
+                    })
+                  }
+                >
+                  <option value="">Select</option>
+
+                  {stateList.map((v: any) => (
+                    <option key={v._id} value={v.listItem}>
+                      {v.listItem}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>{renderUserSearch("owner", "Owner")}</div>
+
+              <div>
+                <Label>Due Date</Label>
+
+                <Input
+                  type="date"
+                  value={form.dueDate || ""}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      dueDate: e.target.value,
+                    })
+                  }
+                />
+              </div>
             </div>
-
-            <div>{renderClientSearch("paymentFrom", "Payment From")}</div>
-
-            <div className="md:col-span-2">
-              <Label>Description</Label>
-
-              <Textarea
-                rows={4}
-                value={form.description || ""}
-                onChange={(e) =>
-                  setForm({
-                    ...form,
-                    description: e.target.value,
-                  })
-                }
-              />
-            </div>
-
-            <div>
-              <Label>Receivable Amount</Label>
-
-              <AmountToWords
-                amount={String(form.receivableAmount || "")}
-                onChange={(val) =>
-                  setForm((prev: any) => ({
-                    ...prev,
-                    receivableAmount: val,
-                  }))
-                }
-              />
-            </div>
-
-            <div>
-              <Label>State</Label>
-
-              <select
-                className="w-full border rounded-md p-2"
-                value={form.state || ""}
-                onChange={(e) =>
-                  setForm({
-                    ...form,
-                    state: e.target.value,
-                  })
-                }
-              >
-                <option value="">Select</option>
-
-                {stateList.map((v: any) => (
-                  <option key={v._id} value={v.listItem}>
-                    {v.listItem}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>{renderUserSearch("owner", "Owner")}</div>
-
-            <div>
-              <Label>Due Date</Label>
-
-              <Input
-                type="date"
-                value={form.dueDate || ""}
-                onChange={(e) =>
-                  setForm({
-                    ...form,
-                    dueDate: e.target.value,
-                  })
-                }
-              />
-            </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
 
         {/* AREA */}
-        <div className="border rounded-xl p-6 shadow-sm space-y-6">
-          <h2 className="text-base font-semibold tracking-tight">Area</h2>
+        <Card className="overflow-hidden border-0 shadow-lg rounded-2xl">
+          <CardHeader className="bg-gradient-to-r from-emerald-500 to-emerald-300 text-white py-4">
+            <CardTitle className="flex items-center gap-2">
+              <MapPinned className="h-5 w-5" />
+              Area & Classification
+            </CardTitle>
+          </CardHeader>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <Label>Vertical</Label>
+          <CardContent className="p-6 bg-slate-50">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <Label>Vertical</Label>
 
-              <select
-                className="w-full border rounded-md p-2"
-                value={form.vertical || ""}
-                onChange={(e) =>
-                  setForm({
-                    ...form,
-                    vertical: e.target.value,
-                  })
-                }
-              >
-                <option value="">Select</option>
+                <select
+                  className="w-full border rounded-md p-2"
+                  value={form.vertical || ""}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      vertical: e.target.value,
+                    })
+                  }
+                >
+                  <option value="">Select</option>
 
-                {verticals.map((v: any) => (
-                  <option key={v._id} value={v.listItem}>
-                    {v.listItem}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <Label>Sub Vertical</Label>
-
-              <select
-                className="w-full border rounded-md p-2"
-                value={form.subVertical || ""}
-                onChange={(e) =>
-                  setForm({
-                    ...form,
-                    subVertical: e.target.value,
-                  })
-                }
-              >
-                <option value="">Select</option>
-
-                {subVerticals.map((v: any) => (
-                  <option key={v._id} value={v.listItem}>
-                    {v.listItem}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <Label>Status</Label>
-
-              <select
-                className="w-full border rounded-md p-2"
-                value={form.status || ""}
-                onChange={(e) =>
-                  setForm({
-                    ...form,
-                    status: e.target.value,
-                  })
-                }
-              >
-                <option value="">Select</option>
-
-                {statusList.map((v: any) => (
-                  <option key={v._id} value={v.listItem}>
-                    {v.listItem}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <Label>Invoice No</Label>
-
-              <Input
-                value={form.invoiceNo || ""}
-                onChange={(e) =>
-                  setForm({
-                    ...form,
-                    invoiceNo: e.target.value,
-                  })
-                }
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* TENDER / WORK ORDER */}
-        <div className="border rounded-xl p-6 shadow-sm space-y-6">
-          <h2 className="text-base font-semibold tracking-tight">
-            Tender & Work Order Info
-          </h2>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Tender No */}
-            <div className="relative">
-              <Label>Tender No</Label>
-
-              <Input
-                value={form.tenderNo || ""}
-                className="bg-muted"
-                readOnly
-              />
-            </div>
-
-            <div>
-              <Label>Tender Title</Label>
-
-              <Input
-                readOnly
-                className="bg-muted"
-                value={form.tenderName || ""}
-              />
-            </div>
-
-            {/* Work Order */}
-            <div className="relative">
-              <Label>Work Order No</Label>
-
-              <Input
-                value={form.woNo || ""}
-                onChange={(e) => {
-                  const value = e.target.value;
-
-                  setForm({
-                    ...form,
-                    woNo: value,
-                  });
-
-                  searchWorkOrders(value);
-                }}
-              />
-
-              {workOrderResults.length > 0 && (
-                <div className="absolute z-10 bg-white border rounded-md shadow-md w-full max-h-40 overflow-y-auto">
-                  {workOrderResults.map((wo: any) => (
-                    <div
-                      key={wo._id}
-                      className="p-2 hover:bg-gray-100 cursor-pointer"
-                      onClick={() => {
-                        setForm({
-                          ...form,
-                          woNo: wo.woNo,
-                          woTitle: wo.woTitle,
-                          tenderNo: wo.tenderNo,
-                          tenderName: wo.tenderName,
-                        });
-
-                        setWorkOrderResults([]);
-                      }}
-                    >
-                      {wo.woNo}
-                    </div>
+                  {verticals.map((v: any) => (
+                    <option key={v._id} value={v.listItem}>
+                      {v.listItem}
+                    </option>
                   ))}
-                </div>
-              )}
-            </div>
+                </select>
+              </div>
 
-            <div>
-              <Label>Work Order Title</Label>
+              <div>
+                <Label>Sub Vertical</Label>
 
-              <Input readOnly className="bg-muted" value={form.woTitle || ""} />
+                <select
+                  className="w-full border rounded-md p-2"
+                  value={form.subVertical || ""}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      subVertical: e.target.value,
+                    })
+                  }
+                >
+                  <option value="">Select</option>
+
+                  {subVerticals.map((v: any) => (
+                    <option key={v._id} value={v.listItem}>
+                      {v.listItem}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <Label>Status</Label>
+
+                <select
+                  className="w-full border rounded-md p-2"
+                  value={form.status || ""}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      status: e.target.value,
+                    })
+                  }
+                >
+                  <option value="">Select</option>
+
+                  {statusList.map((v: any) => (
+                    <option key={v._id} value={v.listItem}>
+                      {v.listItem}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <Label>Invoice No</Label>
+
+                <Input
+                  value={form.invoiceNo || ""}
+                  className="h-11 rounded-xl border-slate-300 focus:border-cyan-600 focus:ring-2 focus:ring-cyan-200"
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      invoiceNo: e.target.value,
+                    })
+                  }
+                />
+              </div>
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
+        {/* TENDER / WORK ORDER */}
+        <Card className="overflow-hidden border-0 shadow-lg rounded-2xl">
+          <CardHeader className="bg-gradient-to-r from-violet-500 to-violet-300 text-white py-4">
+            <CardTitle className="flex items-center gap-2">
+              <Briefcase className="h-5 w-5" />
+              Tender & Work Order Information
+            </CardTitle>
+          </CardHeader>
+
+          <CardContent className="p-6 bg-slate-50">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Tender No */}
+              <div className="relative">
+                <Label>Tender No</Label>
+
+                <Input
+                  value={form.tenderNo || ""}
+                  className="bg-muted"
+                  readOnly
+                />
+              </div>
+
+              <div>
+                <Label>Tender Description</Label>
+
+                <Input
+                  readOnly
+                  className="bg-slate-100 border-slate-200 rounded-xl"
+                  value={form.tenderDesc || ""}
+                />
+              </div>
+
+              {/* Work Order */}
+              <div className="relative">
+                <Label>Work Order No</Label>
+
+                <Input
+                  value={form.woNo || ""}
+                  onChange={(e) => {
+                    const value = e.target.value;
+
+                    setForm({
+                      ...form,
+                      woNo: value,
+                    });
+
+                    searchWorkOrders(value);
+                  }}
+                />
+
+                {workOrderResults.length > 0 && (
+                  <div className="absolute z-10 bg-white border rounded-md shadow-md w-full max-h-40 overflow-y-auto">
+                    {workOrderResults.map((wo: any) => (
+                      <div
+                        key={wo._id}
+                        className="p-2 hover:bg-gray-100 cursor-pointer"
+                        onClick={() => {
+                          setForm({
+                            ...form,
+                            woNo: wo.woNo,
+                            woTitle: wo.woTitle,
+                            tenderNo: wo.tenderNo,
+                            tenderName: wo.tenderName,
+                          });
+
+                          setWorkOrderResults([]);
+                        }}
+                      >
+                        {wo.woNo}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <Label>Work Order Title</Label>
+
+                <Input
+                  readOnly
+                  className="bg-slate-100 border-slate-200 rounded-xl"
+                  value={form.woTitle || ""}
+                />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* ACTIONS */}
         <div className="flex justify-end gap-4">

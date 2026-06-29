@@ -403,14 +403,14 @@ export default function EditReceivableForm({ id }: { id: string }) {
                   </div>
 
                   <div>
-                    <Label>Tender Name</Label>
+                    <Label>Tender Description</Label>
 
                     <Input
-                      value={form.tenderName || ""}
+                      value={form.tenderDesc || ""}
                       onChange={(e) =>
                         setForm({
                           ...form,
-                          tenderName: e.target.value,
+                          tenderDesc: e.target.value,
                         })
                       }
                     />

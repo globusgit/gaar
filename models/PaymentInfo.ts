@@ -19,7 +19,7 @@ const PaymentInfoSchema = new mongoose.Schema(
     tenderNo: {
       type: String,
     },
-    tenderName: {
+    tenderDesc: {
       type: String,
     },
     description: {

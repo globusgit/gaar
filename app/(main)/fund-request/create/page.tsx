@@ -31,7 +31,7 @@ export default function CreateFR() {
     paymentPriority: "",
     dueDate: "",
     tenderNo: "",
-    tenderName: "",
+    tenderDescription: "",
     woNo: "",
     woTitle: "",
     requestedBy: "",
@@ -55,12 +55,16 @@ export default function CreateFR() {
     null,
   );
 
+  // TENDER SEARCH
+  const [tenderResults, setTenderResults] = useState<any[]>([]);
+
   // PAYMENT TO SEARCH
   const [paymentToResults, setPaymentToResults] = useState<any[]>([]);
 
   const woNoRef = useRef<HTMLDivElement>(null);
   const woTitleRef = useRef<HTMLDivElement>(null);
   const paymentToRef = useRef<HTMLDivElement>(null);
+  const tenderRef = useRef<HTMLDivElement>(null);
 
   const normalizeList = (data: any) => {
     if (!data) return [];
@@ -157,6 +161,7 @@ export default function CreateFR() {
       woNo: wo.woNo || "",
       woTitle: wo.woTitle || "",
       tenderNo: wo.tenderNo || prev.tenderNo || "",
+      tenderName: wo.tenderName || prev.tenderName || "",
     }));
 
     setWoResults([]);
@@ -189,6 +194,54 @@ export default function CreateFR() {
     setPaymentToResults([]);
   };
 
+  // ---------------- TENDER SEARCH ----------------
+  const searchTender = async (q: string) => {
+    if (!q) {
+      setTenderResults([]);
+      return;
+    }
+    const res = await fetch(
+      `/api/tender/search?q=${encodeURIComponent(q)}&orgId=${form.orgId}`,
+    );
+    const data = await res.json();
+    setTenderResults(data.data || []);
+  };
+
+  const selectTender = (tender: any) => {
+    const amountFieldMap: Record<string, string> = {
+      EMD: "emdAmount",
+      BG: "bgAmount",
+      "Document Fee": "documentFee",
+      "Transaction Fee": "transactionFee",
+      "Corpus Fund": "corpusFund",
+    };
+
+    // 🔹 Due date mapping
+    const dueDateFieldMap: Record<string, string> = {
+      EMD: "emdPaymentDate",
+      BG: "bgPaymentDate",
+      "Document Fee": "documentFeePaymentDate",
+      "Transaction Fee": "transactionFeePaymentDate",
+      "Corpus Fund": "corpusFundPaymentDate",
+    };
+
+    const amountField = amountFieldMap[form.paymentType];
+    const dueDateField = dueDateFieldMap[form.paymentType];
+
+    const autoAmount = amountField ? String(tender?.[amountField] || "") : "";
+
+    const autoDueDate = dueDateField ? tender?.[dueDateField] || "" : "";
+
+    setForm((prev: any) => ({
+      ...prev,
+      tenderNo: tender.tenderNo || "",
+      tenderDescription: tender.description || "",
+      amount: autoAmount || prev.amount || "",
+      dueDate: autoDueDate || prev.dueDate || "",
+    }));
+
+    setTenderResults([]);
+  };
   // ---------------- CLOSE DROPDOWNS ----------------
   useEffect(() => {
     const handleClickOutside = (event: any) => {
@@ -207,6 +260,10 @@ export default function CreateFR() {
       ) {
         setPaymentToResults([]);
       }
+
+      if (tenderRef.current && !tenderRef.current.contains(event.target)) {
+        setTenderResults([]);
+      }
     };
 
     document.addEventListener("mousedown", handleClickOutside);
@@ -220,9 +277,9 @@ export default function CreateFR() {
   const handleSubmit = async () => {
     if (
       (form.paymentType === "EMD" || form.paymentType === "BG") &&
-      (!form.tenderNo || !form.tenderName)
+      (!form.tenderNo || !form.tenderDescription)
     ) {
-      alert("Tender No and Tender Title are mandatory");
+      alert("Tender No and Tender Description are mandatory");
       return;
     }
     await fetch("/api/fund-request", {
@@ -252,45 +309,6 @@ export default function CreateFR() {
               })
             }
           />
-        </div>
-
-        {/* AMOUNT */}
-        <div>
-          <label>Request Amount</label>
-
-          <AmountToWords
-            amount={form.amount}
-            onChange={(val) =>
-              setForm({
-                ...form,
-                amount: val,
-              })
-            }
-          />
-        </div>
-
-        {/* STATE */}
-        <div>
-          <label>State</label>
-
-          <select
-            className="border rounded-lg p-2 w-full"
-            value={form.state}
-            onChange={(e) =>
-              setForm({
-                ...form,
-                state: e.target.value,
-              })
-            }
-          >
-            <option value="">Select</option>
-
-            {lists.state.map((s: any) => (
-              <option key={s._id} value={s.listItem}>
-                {s.listItem}
-              </option>
-            ))}
-          </select>
         </div>
 
         {/* FR TYPE */}
@@ -342,9 +360,14 @@ export default function CreateFR() {
         </div>
 
         {/* TENDER DETAILS */}
-        {(form.paymentType === "EMD" || form.paymentType === "BG") && (
+        {(form.paymentType === "EMD" ||
+          form.paymentType === "BG" ||
+          form.paymentType === "Document Fee" ||
+          form.paymentType === "Transaction Fee" ||
+          form.paymentType === "Corpus Fund") && (
           <>
-            <div>
+            {/* TENDER NO SEARCH */}
+            <div className="relative" ref={tenderRef}>
               <label>
                 Tender No <span className="text-red-500">*</span>
               </label>
@@ -352,30 +375,41 @@ export default function CreateFR() {
               <Input
                 required
                 value={form.tenderNo}
-                onChange={(e) =>
+                onChange={(e) => {
                   setForm({
                     ...form,
                     tenderNo: e.target.value,
-                  })
-                }
+                    tenderName: "",
+                  });
+
+                  searchTender(e.target.value);
+                }}
               />
+
+              {tenderResults.length > 0 && (
+                <div className="absolute z-20 w-full bg-white border rounded-md shadow-md max-h-56 overflow-auto">
+                  {tenderResults.map((t: any) => (
+                    <div
+                      key={t._id}
+                      className="p-2 hover:bg-gray-100 cursor-pointer text-sm"
+                      onClick={() => selectTender(t)}
+                    >
+                      <div className="font-medium">{t.tenderNo}</div>
+
+                      <div className="text-gray-500">{t.description}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
+            {/* TENDER TITLE */}
             <div>
               <label>
-                Tender Title <span className="text-red-500">*</span>
+                Tender Description <span className="text-red-500">*</span>
               </label>
 
-              <Input
-                required
-                value={form.tenderName}
-                onChange={(e) =>
-                  setForm({
-                    ...form,
-                    tenderName: e.target.value,
-                  })
-                }
-              />
+              <Input required readOnly value={form.tenderDescription} />
             </div>
           </>
         )}
@@ -450,7 +484,44 @@ export default function CreateFR() {
             </div>
           </>
         )}
+        {/* AMOUNT */}
+        <div>
+          <label>Request Amount</label>
 
+          <AmountToWords
+            amount={form.amount}
+            onChange={(val) =>
+              setForm({
+                ...form,
+                amount: val,
+              })
+            }
+          />
+        </div>
+
+        {/* STATE */}
+        <div>
+          <label>State</label>
+
+          <select
+            className="border rounded-lg p-2 w-full"
+            value={form.state}
+            onChange={(e) =>
+              setForm({
+                ...form,
+                state: e.target.value,
+              })
+            }
+          >
+            <option value="">Select</option>
+
+            {lists.state.map((s: any) => (
+              <option key={s._id} value={s.listItem}>
+                {s.listItem}
+              </option>
+            ))}
+          </select>
+        </div>
         {/* VERTICAL */}
         <div>
           <label>Vertical</label>
@@ -573,16 +644,14 @@ export default function CreateFR() {
           />
         </div>
 
-        {/* REQUESTED BY */}
-        <div>
-          <label>Requested By</label>
-
-          <Input value={form.requestedBy} readOnly />
-        </div>
-
         {/* SUBMIT */}
         <div className="col-span-2 flex justify-end">
-          <Button onClick={handleSubmit}>Request</Button>
+          <Button
+            onClick={handleSubmit}
+            className="bg-cyan-900 hover:bg-cyan-600"
+          >
+            Request
+          </Button>
         </div>
       </div>
     </div>

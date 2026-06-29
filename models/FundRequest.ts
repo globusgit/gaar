@@ -85,7 +85,7 @@ const FundRequestSchema = new mongoose.Schema(
     tenderNo: {
       type: String,
     },
-    tenderName: {
+    tenderDesc: {
       type: String,
     },
     requestedById: {
@@ -95,9 +95,6 @@ const FundRequestSchema = new mongoose.Schema(
       type: String,
     },
     authorizedById: {
-      type: String,
-    },
-    workOrderNo: {
       type: String,
     },
     woDepartment: {

@@ -49,18 +49,21 @@ export default function FundRequestList() {
   };
 
   useEffect(() => {
+    if (!orgId) return;
     fetchData();
-  }, [page, limit, sortField, sortOrder]);
+  }, [orgId, page, limit, sortField, sortOrder]);
 
   // 🔍 debounce search
   useEffect(() => {
+    if (!orgId) return;
+
     const delay = setTimeout(() => {
       setPage(1);
       fetchData();
     }, 400);
 
     return () => clearTimeout(delay);
-  }, [search]);
+  }, [search, orgId]);
 
   // ---------------- SORT ----------------
   const handleSort = (field: string) => {
@@ -246,12 +249,14 @@ export default function FundRequestList() {
           Prev
         </Button>
 
-        <span className="text-sm">Page {page}</span>
+        <span className="text-sm">
+          Page {page} of {totalPages}
+        </span>
 
         <Button
           variant="outline"
           size="sm"
-          disabled={page * limit >= totalPages}
+          disabled={page >= totalPages}
           onClick={() => setPage((p) => p + 1)}
         >
           Next

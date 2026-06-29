@@ -99,38 +99,6 @@ export async function POST(req) {
   });
 
   if (fr) {
-    // Create Payment Record
-    // console.log("Requested FR: ", fr);
-    await PaymentInfo.create({
-      paymentType: fr.paymentType,
-      frType: fr.frType,
-      woNo: fr.woNo,
-      woTitle: fr.woTitle,
-      tenderNo: fr.tenderNo,
-      tenderName: fr.tenderName,
-      description: fr.description,
-      requestAmount: fr.amount,
-      paidAmount: 0,
-      balanceAmount: fr.amount,
-      vertical: fr.vertical,
-      subVertical: fr.subVertical,
-      paymentTo: fr.paymentTo,
-      requestedBy: fr.requestedBy,
-      isApproved: false,
-      approvedBy: null,
-      approvedDate: null,
-      isAuthorized: false,
-      authorizedBy: null,
-      authorizationDate: null,
-      status: fr.status,
-      requestedDate: fr.requestedDate,
-      paymentPriority: fr.paymentPriority,
-      dueDate: fr.dueDate,
-      paidDate: null,
-      requestNo: fr.frNo,
-      state: fr.state,
-      orgId: fr.orgId,
-    });
     //console.log("Created Payment Record: ")
     let frCount = parseInt(config.value, 10) + 1;
     await Config.findOneAndUpdate(

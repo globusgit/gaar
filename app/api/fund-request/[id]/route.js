@@ -38,37 +38,44 @@ export async function PUT(req, { params }) {
     body.status = "Pending Payment";
   }
   console.log("Update body:", body);
+
   const fr = await FundRequest.findOneAndUpdate({ _id: id }, body, {
     new: true,
   });
   console.log("Updated FR:", fr);
-  if (fr) {
-    await PaymentInfo.findOneAndUpdate(
-      { requestNo: fr.frNo, orgId: fr.orgId },
-      {
-        paymentType: fr.paymentType,
-        frType: fr.frType,
-        description: fr.description,
-        amount: fr.amount,
-        vertical: fr.vertical,
-        subVertical: fr.subVertical,
-        paymentTo: fr.paymentTo,
-        paymentPriority: fr.paymentPriority,
-        dueDate: fr.dueDate,
-        state: fr.state,
-        status: fr.status,
-        isApproved: fr.isApproved,
-        approvedBy: fr.approvedBy,
-        approvedDate: fr.approvalDate,
-        isAuthorized: fr.isAuthorized,
-        authorizedBy: fr.authorizedBy,
-        authorizationDate: fr.authorizationDate,
-        woNo: fr.woNo,
-        woTitle: fr.woTitle,
-        tenderNo: fr.tenderNo,
-        tenderName: fr.tenderName,
-      },
-    );
+  if (fr.isAuthorized) {
+    // Create Payment Record
+    // console.log("Requested FR: ", fr);
+    await PaymentInfo.create({
+      paymentType: fr.paymentType,
+      frType: fr.frType,
+      woNo: fr.woNo,
+      woTitle: fr.woTitle,
+      tenderNo: fr.tenderNo,
+      tenderDesc: fr.tenderDesc,
+      description: fr.description,
+      requestAmount: fr.amount,
+      paidAmount: 0,
+      balanceAmount: fr.amount,
+      vertical: fr.vertical,
+      subVertical: fr.subVertical,
+      paymentTo: fr.paymentTo,
+      requestedBy: fr.requestedBy,
+      isApproved: fr.isApproved,
+      approvedBy: fr.approvedBy,
+      approvedDate: fr.approvedDate,
+      isAuthorized: fr.isAuthorized,
+      authorizedBy: fr.authorizedBy,
+      authorizationDate: fr.authorizationDate,
+      status: fr.status,
+      requestedDate: fr.requestedDate,
+      paymentPriority: fr.paymentPriority,
+      dueDate: fr.dueDate,
+      paidDate: null,
+      requestNo: fr.frNo,
+      state: fr.state,
+      orgId: fr.orgId,
+    });
   }
 
   return NextResponse.json({ message: "Updated Successfully" });

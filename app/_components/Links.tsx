@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useSession } from "next-auth/react";
+import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   ReceiptText,
@@ -22,6 +23,7 @@ export const menuItems = [
   { icon: Users, label: "Employees", route: "/employees" },
   { icon: User, label: "Clients", route: "/clients" },
   { icon: Briefcase, label: "Work Orders", route: "/work-orders" },
+  { icon: FileText, label: "Tenders", route: "/tenders" },
   { icon: Building2, label: "Organizations", route: "/organizations" },
   { icon: Users, label: "Users", route: "/users" },
   { icon: Settings, label: "Settings", route: "/settings" },
@@ -29,7 +31,7 @@ export const menuItems = [
 
 const Links = () => {
   const { data: session } = useSession();
-
+  const pathname = usePathname();
   const role = session?.user?.role;
 
   const filteredMenu = menuItems.filter((item) => {
@@ -62,17 +64,25 @@ const Links = () => {
 
   return (
     <div>
-      {filteredMenu.map((item) => (
-        <div key={item.label} className="flex flex-col gap-4 ml-1">
-          <Link
-            href={item.route}
-            className="cursor-pointer flex items-center justify-center lg:justify-start gap-4 text-white py-4 hover:bg-cyan-300 hover:text-black"
-          >
-            <item.icon className="h-5 w-5" />
-            <span className="hidden lg:block">{item.label}</span>
-          </Link>
-        </div>
-      ))}
+      {filteredMenu.map((item) => {
+        const isActive =
+          pathname === item.route || pathname.startsWith(`${item.route}/`);
+        return (
+          <div key={item.label} className="flex flex-col gap-4 ml-1">
+            <Link
+              href={item.route}
+              className={`cursor-pointer flex items-center justify-center lg:justify-start gap-4 py-4 px-3 transition-colors ${
+                isActive
+                  ? "bg-cyan-100 text-black font-semibold rounded-md"
+                  : "text-white hover:bg-cyan-100 hover:text-black rounded-md"
+              }`}
+            >
+              <item.icon className="h-5 w-5" />
+              <span className="hidden lg:block">{item.label}</span>
+            </Link>
+          </div>
+        );
+      })}
     </div>
   );
 };

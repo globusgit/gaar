@@ -3,6 +3,9 @@ import connectDB from "@/lib/mongoose";
 import TransactionInfo from "@/models/TransactionInfo";
 import PaymentInfo from "@/models/PaymentInfo";
 import ReceivableInfo from "@/models/ReceivableInfo";
+import TenderInfo from "@/models/TenderInfo";
+import WorkOrder from "@/models/WorkOrder";
+import FundRequest from "@/models/FundRequest";
 
 export async function POST(req) {
   const body = await req.json();
@@ -12,17 +15,20 @@ export async function POST(req) {
     await connectDB();
     //console.log("After connecting to db");
     //const clientNameWithNoSpaces = client.replace(/\s/g,'');
-
+    const orgId = body.orgId;
     const createdTxn = await TransactionInfo.create(body);
     console.log(createdTxn);
     if (createdTxn) {
       if (body.entityType === "PAYMENT") {
         console.log("Body Amount: ", body.amount);
         const paymentData = await PaymentInfo.findById(body.entityId);
-        const balanceAmount = Number(paymentData.balanceAmount) - body.amount;
+        const balanceAmount =
+          Number(paymentData.balanceAmount) - Number(body.amount);
         // const paidAmount = Number(paymentData.paidAmount || 0) + body.amount;
+
+        console.log("Balance Amount after Update: ", balanceAmount);
         let paymentStatus = "Partially Paid";
-        if (balanceAmount <= 0) {
+        if (Number(balanceAmount) <= 0) {
           paymentStatus = "Paid";
         }
 
@@ -39,11 +45,102 @@ export async function POST(req) {
           },
           { returnDocument: "after" },
         );
+
+        if (up) {
+          /** Update Fund Request status so that it reflects the payment status */
+          console.log("Payment Status: ", paymentStatus);
+          console.log("OrgId: ", orgId);
+          const updatedFundRequest = await FundRequest.findOneAndUpdate(
+            {
+              frNo: up.requestNo,
+              orgId: orgId,
+            },
+            {
+              status: paymentStatus,
+            },
+            { returnDocument: "after" },
+          );
+          console.log("Updated Fund Request: ", updatedFundRequest);
+        }
+        /** Update Tender if payment is made against any Tender Payments */
+        if (
+          up.paymentType === "BG" ||
+          up.paymentType === "EMD" ||
+          up.paymentType === "Transaction Fee" ||
+          up.paymentType === "Corpus Fund" ||
+          up.paymentType === "Document Fee"
+        ) {
+          console.log(
+            "Updating tender information for payment type: ",
+            up.paymentType,
+          );
+          if (up.paymentType === "BG") {
+            await TenderInfo.findOneAndUpdate(
+              {
+                tenderNo: up.tenderNo,
+                orgId: orgId,
+              },
+              {
+                bgPaymentDate: createdTxn.txnDate,
+                bgPaymentStatus: paymentStatus,
+              },
+            );
+          }
+          if (up.paymentType === "EMD") {
+            await TenderInfo.findOneAndUpdate(
+              {
+                tenderNo: up.tenderNo,
+                orgId: orgId,
+              },
+              {
+                emdPaymentDate: createdTxn.txnDate,
+                emdPaymentStatus: paymentStatus,
+              },
+            );
+          }
+          if (up.paymentType === "Transaction Fee") {
+            await TenderInfo.findOneAndUpdate(
+              {
+                tenderNo: up.tenderNo,
+                orgId: orgId,
+              },
+              {
+                transactionFeePaymentDate: createdTxn.txnDate,
+                transactionFeePaymentStatus: paymentStatus,
+              },
+            );
+          }
+          if (up.paymentType === "Corpus Fund") {
+            await TenderInfo.findOneAndUpdate(
+              {
+                tenderNo: up.tenderNo,
+                orgId: orgId,
+              },
+              {
+                corpusFundPaymentDate: createdTxn.txnDate,
+                corpusFundPaymentStatus: paymentStatus,
+              },
+            );
+          }
+          if (up.paymentType === "Document Fee") {
+            await TenderInfo.findOneAndUpdate(
+              {
+                tenderNo: up.tenderNo,
+                orgId: orgId,
+              },
+              {
+                documentFeePaymentDate: createdTxn.txnDate,
+                documentFeePaymentStatus: paymentStatus,
+              },
+            );
+          }
+        }
+
         console.log("Updated Payment: ", up);
         if (up.paymentType === "BG" || up.paymentType === "EMD") {
           console.log("Balance Amount: ", up.balanceAmount);
           console.log("Payment Type: ", up.paymentType);
-          if (up.balanceAmount === 0) {
+          if (Number(up.balanceAmount) === 0) {
             console.log("Creating receivable entry for BG/EMD payment...");
 
             await ReceivableInfo.create({
@@ -63,7 +160,7 @@ export async function POST(req) {
               invoiceNo: null,
               dueDate: null,
               tenderNo: up.tenderNo,
-              tenderName: up.tenderName,
+              tenderDesc: up.tenderDesc,
               state: up.state,
               orgId: up.orgId,
             });
@@ -82,12 +179,15 @@ export async function POST(req) {
         let receivableStatus = "Pending";
 
         // Fully received
-        if (balanceReceivableAmount <= 0) {
+        if (Number(balanceReceivableAmount) <= 0) {
           receivableStatus = "Received";
         }
 
         // Partially received
-        else if (balanceReceivableAmount > 0 && receivedAmount > 0) {
+        else if (
+          Number(balanceReceivableAmount) > 0 &&
+          Number(receivedAmount) > 0
+        ) {
           receivableStatus = "Partially Received";
         }
 
@@ -100,11 +200,60 @@ export async function POST(req) {
             },
             $set: {
               status: receivableStatus,
+              receivedDate: createdTxn.txnDate || new Date(),
             },
           },
           { returnDocument: "after" },
         );
-
+        /** If BG or EMD is Received fully update TenderInfo emdRefundStatus as Received or
+         * bgRefundStatus as Received based on type
+         * and WorkOrderInfo's bgReceivedStatus as Received
+         *
+         */
+        if (
+          updatedReceivable.type === "BG" ||
+          updatedReceivable.type === "EMD"
+        ) {
+          if (
+            updatedReceivable.type === "BG" &&
+            receivableStatus === "Received"
+          ) {
+            /** Find the corresponding work order and update bgRefundStatus and bgRefundDate */
+            await TenderInfo.findOneAndUpdate(
+              {
+                tenderNo: updatedReceivable.tenderNo,
+                orgId: orgId,
+              },
+              {
+                $set: {
+                  bgRefundStatus: "Refunded",
+                  bgRefundDate: updatedReceivable.receivedDate,
+                },
+              },
+              { returnDocument: "after" },
+            );
+            await WorkOrder.findOneAndUpdate(
+              { woNo: updatedReceivable.woNo, orgId: orgId },
+              { bgReceivedStatus: "Refunded" },
+              { returnDocument: "after" },
+            );
+          }
+          if (
+            updatedReceivable.type === "EMD" &&
+            receivableStatus === "Received"
+          ) {
+            await TenderInfo.findOneAndUpdate(
+              { tenderNo: updatedReceivable.tenderNo, orgId: orgId },
+              {
+                $set: {
+                  emdRefundStatus: "Refunded",
+                  emdRefundDate: updatedReceivable.receivedDate,
+                },
+              },
+              { returnDocument: "after" },
+            );
+          }
+        }
         console.log(
           "Receivable transaction created successfully!",
           updatedReceivable,

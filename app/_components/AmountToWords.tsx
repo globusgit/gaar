@@ -8,10 +8,12 @@ export default function AmountToWords({
   amount,
   readOnly = false,
   onChange,
+  onBlur,
 }: {
   amount: string;
   readOnly?: boolean;
   onChange: (val: string) => void;
+  onBlur?: () => void;
 }) {
   const convertToWords = (value: string) => {
     if (!value) return "";
@@ -111,11 +113,13 @@ export default function AmountToWords({
   return (
     <div className="space-y-2">
       <Input
+        className="text-2xl font-bold text-slate-800"
         type="text"
         step="0.01"
         value={amount || ""}
         placeholder="Enter amount"
         readOnly={readOnly}
+        onBlur={onBlur}
         onChange={(e) => {
           const val = e.target.value;
 

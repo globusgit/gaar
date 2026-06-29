@@ -3,27 +3,22 @@ import connectDB from "@/lib/mongoose";
 import WorkOrder from "@/models/WorkOrder";
 
 export async function POST(req) {
-  const { woNo, woTitle, woDate, client, woValue, clientId, orgId } =
-    await req.json();
+  const body = await req.json();
   console.log("After passing data to constants");
   try {
     await connectDB();
     console.log("After connecting to db");
 
     const woToCreate = new WorkOrder({
-      woNo,
-      woTitle,
-      woDate,
-      client,
-      woValue,
-      clientId,
-      orgId,
+      ...body,
+      status: "Live",
+      bgReceivedStatus: "Pending",
     });
     const createdWorkOrder = await WorkOrder.create(woToCreate);
     console.log(createdWorkOrder);
-    return new NextResponse({ message: "Success!" }, { status: 200 });
+    return NextResponse.json({ message: "Success!" }, { status: 200 });
   } catch (err) {
-    return new NextResponse(
+    return NextResponse.json(
       { message: "Something went wrong!" },
       { status: 500 },
     );
@@ -68,13 +63,12 @@ export async function GET(req) {
  * @returns M
  */
 export async function PATCH(req) {
-  const { woNo, woTitle, woDate, client, woValue, clientId, orgId } =
-    await req.json();
+  const body = await req.json();
   try {
     await connectDB();
     const updatedWorkOrder = await WorkOrder.findOneAndUpdate(
       { woNo, orgId },
-      { woTitle, woDate, client, woValue, clientId },
+      { ...body },
       { new: true },
     );
 
