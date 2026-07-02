@@ -12,7 +12,7 @@ export async function POST(req) {
     const woToCreate = new WorkOrder({
       ...body,
       status: "Live",
-      bgReceivedStatus: "Pending",
+      bgReceivedStatus: "Pending to Pay",
     });
     const createdWorkOrder = await WorkOrder.create(woToCreate);
     console.log(createdWorkOrder);

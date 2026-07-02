@@ -4,8 +4,8 @@ import PaymentInfo from "@/models/PaymentInfo";
 import ReceivableIno from "@/models/ReceivableInfo";
 import FundRequest from "@/models/FundRequest";
 import Config from "@/models/Config";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+
+import { auth } from "@/lib/auth";
 import Employee from "@/models/Employee";
 
 /**
@@ -28,7 +28,7 @@ export async function GET(req) {
     const sortField = searchParams.get("sortField") || "createdAt";
     const sortOrder = searchParams.get("sortOrder") === "asc" ? 1 : -1;
 
-    const session = await getServerSession(authOptions);
+    const session = await auth();
     const user = session?.user;
 
     if (!user) {

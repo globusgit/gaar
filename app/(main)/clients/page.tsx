@@ -1,8 +1,9 @@
 // app/(dashboard)/clients/page.tsx
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 
 import PageHeader from "@/app/_components/PageHeader";
 
@@ -29,7 +30,6 @@ import {
 } from "lucide-react";
 
 import * as XLSX from "xlsx";
-
 import { useSession } from "next-auth/react";
 
 type Client = {
@@ -52,11 +52,7 @@ type SortField =
 
 export default function ClientsPage() {
   const { data: session } = useSession();
-
   const router = useRouter();
-
-  const [data, setData] = useState<Client[]>([]);
-  const [loading, setLoading] = useState(false);
 
   // Search
   const [search, setSearch] = useState("");
@@ -64,47 +60,48 @@ export default function ClientsPage() {
   // Pagination
   const [pageIndex, setPageIndex] = useState(0);
   const [pageSize] = useState(10);
-  const [totalPages, setTotalPages] = useState(1);
 
   // Sorting
   const [sortField, setSortField] = useState<SortField>("client");
-
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
 
-  // ---------------- FETCH ----------------
-  const fetchClients = async () => {
-    try {
-      setLoading(true);
+  // ---------------- QUERY ----------------
+  const {
+    data: queryResult,
+    isLoading,
+    isFetching,
+  } = useQuery({
+    queryKey: [
+      "clients",
+      session?.user?.orgId,
+      pageIndex,
+      search,
+      sortField,
+      sortOrder,
+    ],
 
+    queryFn: async () => {
       const res = await fetch(
         `/api/client?orgId=${session?.user?.orgId}&page=${
           pageIndex + 1
         }&limit=${pageSize}&search=${search}&sortField=${sortField}&sortOrder=${sortOrder}`,
       );
 
-      const result = await res.json();
+      if (!res.ok) throw new Error("Failed to fetch clients");
 
-      setData(result.data || []);
-      setTotalPages(result.totalPages || 1);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
+      return res.json();
+    },
 
-  useEffect(() => {
-    fetchClients();
-  }, [pageIndex, search, sortField, sortOrder]);
+    // Only fetch when orgId is available — replaces your useEffect guard
+    enabled: !!session?.user?.orgId,
 
-  // ---------------- FILTER ----------------
-  const filteredData = useMemo(() => {
-    if (!search) return data;
+    // Keeps previous page data visible while next page loads (No blank flash!)
+    placeholderData: keepPreviousData,
+  });
 
-    return data.filter((row) =>
-      Object.values(row).join(" ").toLowerCase().includes(search.toLowerCase()),
-    );
-  }, [data, search]);
+  // Unwrap API response — no more separate useState for these
+  const clients: Client[] = queryResult?.data || [];
+  const totalPages: number = queryResult?.totalPages || 1;
 
   // ---------------- SORT ----------------
   const handleSort = (field: SortField) => {
@@ -117,11 +114,10 @@ export default function ClientsPage() {
   };
 
   // ---------------- EXPORT ----------------
+  // ✅ Uses `clients` directly — API already filtered/sorted the data
   const exportExcel = () => {
-    const sheet = XLSX.utils.json_to_sheet(filteredData);
-
+    const sheet = XLSX.utils.json_to_sheet(clients);
     const wb = XLSX.utils.book_new();
-
     XLSX.utils.book_append_sheet(wb, sheet, "Clients");
 
     const excelBuffer = XLSX.write(wb, {
@@ -134,13 +130,10 @@ export default function ClientsPage() {
     });
 
     const url = window.URL.createObjectURL(blob);
-
     const a = document.createElement("a");
-
     a.href = url;
     a.download = "Clients.xlsx";
     a.click();
-
     window.URL.revokeObjectURL(url);
   };
 
@@ -158,7 +151,6 @@ export default function ClientsPage() {
       onClick={() => handleSort(field)}
     >
       {label}
-
       <ArrowUpDown className="ml-2 h-4 w-4" />
     </Button>
   );
@@ -167,17 +159,23 @@ export default function ClientsPage() {
     <div className="p-4 space-y-4">
       <PageHeader title="Client Listing" />
 
+      {/* Subtle background refresh indicator */}
+      {isFetching && !isLoading && (
+        <p className="text-xs text-muted-foreground animate-pulse">
+          Refreshing...
+        </p>
+      )}
+
       {/* Toolbar */}
       <div className="flex flex-col md:flex-row gap-3 justify-between">
         {/* Search */}
         <div className="relative w-full md:w-[400px]">
           <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-
           <Input
             placeholder="Universal Search..."
             value={search}
             onChange={(e) => {
-              setPageIndex(0);
+              setPageIndex(0); // Reset to first page on new search
               setSearch(e.target.value);
             }}
             className="pl-9"
@@ -194,6 +192,7 @@ export default function ClientsPage() {
           >
             <FileSpreadsheet className="h-5 w-5 text-green-700" />
           </Button>
+
           <Button
             onClick={() => router.push("/clients/create")}
             variant="ghost"
@@ -213,27 +212,21 @@ export default function ClientsPage() {
           <TableHeader className="sticky top-0 bg-cyan-200 z-20 shadow-sm">
             <TableRow>
               <TableHead className="w-[60px]">Edit</TableHead>
-
               <TableHead>
                 <SortableHeader label="Client" field="client" />
               </TableHead>
-
               <TableHead>
                 <SortableHeader label="Client ID" field="clientId" />
               </TableHead>
-
               <TableHead>
                 <SortableHeader label="Website" field="website" />
               </TableHead>
-
               <TableHead>
                 <SortableHeader label="Phone" field="phone" />
               </TableHead>
-
               <TableHead>
                 <SortableHeader label="Email" field="emailId" />
               </TableHead>
-
               <TableHead>
                 <SortableHeader label="State" field="state" />
               </TableHead>
@@ -241,14 +234,14 @@ export default function ClientsPage() {
           </TableHeader>
 
           <TableBody>
-            {loading ? (
+            {isLoading ? (
               <TableRow>
                 <TableCell colSpan={7} className="text-center h-24">
                   Loading...
                 </TableCell>
               </TableRow>
-            ) : filteredData.length > 0 ? (
-              filteredData.map((row) => (
+            ) : clients.length > 0 ? (
+              clients.map((row) => (
                 <TableRow key={row._id}>
                   <TableCell>
                     <Button
@@ -260,17 +253,11 @@ export default function ClientsPage() {
                       <Pencil className="h-4 w-4" />
                     </Button>
                   </TableCell>
-
                   <TableCell>{row.client}</TableCell>
-
                   <TableCell>{row.clientId}</TableCell>
-
                   <TableCell>{row.website}</TableCell>
-
                   <TableCell>{row.phone}</TableCell>
-
                   <TableCell>{row.emailId}</TableCell>
-
                   <TableCell>{row.state}</TableCell>
                 </TableRow>
               ))
@@ -290,7 +277,6 @@ export default function ClientsPage() {
         <div className="text-sm text-muted-foreground">
           Page {pageIndex + 1} of {totalPages}
         </div>
-
         <div className="flex gap-2">
           <Button
             variant="outline"
@@ -300,7 +286,6 @@ export default function ClientsPage() {
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
-
           <Button
             variant="outline"
             size="sm"

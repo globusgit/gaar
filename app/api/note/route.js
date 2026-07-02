@@ -4,10 +4,11 @@ import PaymentInfo from "@/models/PaymentInfo";
 import ReceivableIno from "@/models/ReceivableInfo";
 import FundRequest from "@/models/FundRequest";
 import Config from "@/models/Config";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+//import { getServerSession } from "next-auth";
+//import { authOptions } from "@/lib/auth";
 import Employee from "@/models/Employee";
 import Note from "@/models/Note";
+import { auth } from "@/lib/auth";
 
 /**
  * Get all Payments Info of an organization
@@ -21,7 +22,7 @@ export async function GET(req) {
     const entityType = searchParams.get("entityType");
     const orgId = searchParams.get("orgId");
 
-    const session = await getServerSession(authOptions);
+    const session = await auth();
 
     if (!session?.user) {
       console.log("No session found");

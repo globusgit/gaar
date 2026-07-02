@@ -210,14 +210,17 @@ export async function POST(req) {
          * and WorkOrderInfo's bgReceivedStatus as Received
          *
          */
+        console.log("Updated Receivable: ", updatedReceivable);
         if (
           updatedReceivable.type === "BG" ||
           updatedReceivable.type === "EMD"
         ) {
+          console.log("Inside if receivable type is BG or EMD");
           if (
             updatedReceivable.type === "BG" &&
             receivableStatus === "Received"
           ) {
+            console.log("updatedReceivable type: ", updatedReceivable.type);
             /** Find the corresponding work order and update bgRefundStatus and bgRefundDate */
             await TenderInfo.findOneAndUpdate(
               {

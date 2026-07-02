@@ -1,12 +1,12 @@
-import { NextAuthOptions } from "next-auth";
-import CredentialsProvider from "next-auth/providers/credentials";
+import NextAuth from "next-auth";
+import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { connectDB } from "@/lib/mongoose";
 import User from "@/models/User";
 
-export const authOptions: NextAuthOptions = {
+export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
-    CredentialsProvider({
+    Credentials({
       name: "Credentials",
       credentials: {
         username: { label: "Username", type: "text" },
@@ -16,25 +16,28 @@ export const authOptions: NextAuthOptions = {
       async authorize(credentials) {
         await connectDB();
 
-        if (!credentials?.username || !credentials?.password) {
-          throw new Error("Missing credentials");
+        const username = credentials?.username as string | undefined;
+        const password = credentials?.password as string | undefined;
+
+        if (!username || !password) {
+          return null;
         }
 
-        const user = await User.findOne({
-          username: credentials.username,
-        }).lean();
+        const user = await User.findOne({ username }).lean();
 
-        if (!user) throw new Error("User not found");
+        if (!user) {
+          return null;
+        }
 
-        const isValid = await bcrypt.compare(
-          credentials.password,
-          user.password,
-        );
+        const isValid = await bcrypt.compare(password, user.password);
 
-        if (!isValid) throw new Error("Invalid password");
+        if (!isValid) {
+          return null;
+        }
 
         return {
           id: user._id.toString(),
+          name: user.employeeName ?? user.username,
           username: user.username,
           employeeName: user.employeeName,
           role: user.role,
@@ -76,5 +79,5 @@ export const authOptions: NextAuthOptions = {
     signIn: "/",
   },
 
-  secret: process.env.NEXTAUTH_SECRET,
-};
+  secret: process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET,
+});
