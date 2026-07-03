@@ -33,7 +33,7 @@ type StatItemProps = {
 };
 
 export default function DashboardPage() {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
 
   const orgId = (session?.user as any)?.orgId;
 
@@ -48,7 +48,7 @@ export default function DashboardPage() {
   const [pendingReceivables, setPendingReceivables] = useState<any[]>([]);
 
   useEffect(() => {
-    if (!orgId) return;
+    if (status !== "authenticated" || !orgId) return;
 
     const fetchDashboard = async () => {
       try {
@@ -119,7 +119,15 @@ export default function DashboardPage() {
     };
 
     fetchDashboard();
-  }, [orgId]);
+  }, [status, orgId]);
+
+  if (status === "loading" || loading) {
+    return (
+      <div className="flex h-[80vh] items-center justify-center">
+        <Loader2 className="h-10 w-10 animate-spin text-cyan-700" />
+      </div>
+    );
+  }
 
   const pendingApprovalFRs = useMemo(() => {
     return fundRequests.filter((item) => item.status === "PENDING_APPROVAL");
