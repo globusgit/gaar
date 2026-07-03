@@ -46,7 +46,8 @@ export default function SignIn() {
         const isPrivileged =
           role && ["ADMIN", "SYS_ADMIN", "ACCOUNTS", "ORG_USER"].includes(role);
 
-        router.push(isPrivileged ? "/dashboard" : "/fund-request");
+        window.location.href = isPrivileged ? "/dashboard" : "/fund-request";
+        // router.push(isPrivileged ? "/dashboard" : "/fund-request");
       } else {
         alert("Either email or password do not match!");
       }
