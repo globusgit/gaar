@@ -47,6 +47,16 @@ export default function DashboardPage() {
   const [fundRequests, setFundRequests] = useState<any[]>([]);
   const [pendingReceivables, setPendingReceivables] = useState<any[]>([]);
 
+  const pendingApprovalFRs = useMemo(() => {
+    return fundRequests.filter((item) => item.status === "PENDING_APPROVAL");
+  }, [fundRequests]);
+
+  const pendingAuthorizationFRs = useMemo(() => {
+    return fundRequests.filter(
+      (item) => item.status === "PENDING_AUTHORIZATION",
+    );
+  }, [fundRequests]);
+
   useEffect(() => {
     if (status !== "authenticated" || !orgId) return;
 
@@ -128,16 +138,6 @@ export default function DashboardPage() {
       </div>
     );
   }
-
-  const pendingApprovalFRs = useMemo(() => {
-    return fundRequests.filter((item) => item.status === "PENDING_APPROVAL");
-  }, [fundRequests]);
-
-  const pendingAuthorizationFRs = useMemo(() => {
-    return fundRequests.filter(
-      (item) => item.status === "PENDING_AUTHORIZATION",
-    );
-  }, [fundRequests]);
 
   if (loading) {
     return (
