@@ -1,9 +1,8 @@
-import React from 'react'
-
-function userspage() {
+export default function UsersPage() {
   return (
-    <div>users page</div>
-  )
+    <div>
+      <h1>Users Page</h1>
+      <p>This is the users page.</p>
+    </div>
+  );
 }
-
-export default userspage

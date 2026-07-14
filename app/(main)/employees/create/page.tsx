@@ -1,11 +1,11 @@
-"use client"
+"use client";
 
-import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
-import EmployeeSearch from "@/app/_components/EmployeeSearch"
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import EmployeeSearch from "@/app/_components/EmployeeSearch";
 
 export default function CreateEmployee() {
-  const router = useRouter()
+  const router = useRouter();
 
   const [form, setForm] = useState<any>(() => ({
     name: "",
@@ -15,128 +15,122 @@ export default function CreateEmployee() {
     designation: "",
     isManager: false,
     managerId: "",
-    managerName: ""
-  }))
+    managerName: "",
+  }));
 
-  const [photo, setPhoto] = useState<File | null>(null)
-  const [photoPreview, setPhotoPreview] = useState<string>("")
-  const [designations, setDesignations] = useState<any[]>([])
-  const [managerSearch, setManagerSearch] = useState("")
-  const [managerList, setManagerList] = useState<any[]>([])
-  const [selectedManager, setSelectedManager] = useState<any>(null) 
-  const [loading, setLoading] = useState(false)
+  const [photo, setPhoto] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string>("");
+  const [designations, setDesignations] = useState<any[]>([]);
+  const [managerSearch, setManagerSearch] = useState("");
+  const [managerList, setManagerList] = useState<any[]>([]);
+  const [selectedManager, setSelectedManager] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
 
   // 🔹 Fetch Designations
   useEffect(() => {
     const fetchDesignation = async () => {
-      const orgId = localStorage.getItem("orgId")
+      const orgId = localStorage.getItem("orgId");
 
       const res = await fetch(
-        `/api/system-list?listName=Designation&orgId=${orgId}`
-      )
-      const data = await res.json()
-      console.log("Fetched Designations: ", data)
+        `/api/system-list?listName=Designation&orgId=${orgId}`,
+      );
+      const data = await res.json();
+      console.log("Fetched Designations: ", data);
 
-      setDesignations(
-        Array.isArray(data?.data?.[0])
-          ? data.data[0]
-          : []
-      )
-    }
+      setDesignations(Array.isArray(data?.data?.[0]) ? data.data[0] : []);
+    };
 
-    fetchDesignation()
-  }, [])
+    fetchDesignation();
+  }, []);
 
   // 🔹 Photo Preview
   useEffect(() => {
     if (!photo) {
-      setPhotoPreview("")
-      return
+      setPhotoPreview("");
+      return;
     }
 
-    const url = URL.createObjectURL(photo)
-    setPhotoPreview(url)
+    const url = URL.createObjectURL(photo);
+    setPhotoPreview(url);
 
-    return () => URL.revokeObjectURL(url)
-  }, [photo])
+    return () => URL.revokeObjectURL(url);
+  }, [photo]);
 
   useEffect(() => {
-      const delay = setTimeout(() => {
-        if (managerSearch.length >= 3) {
-          searchManager(managerSearch)
-        }
-      }, 300)
+    const delay = setTimeout(() => {
+      if (managerSearch.length >= 3) {
+        searchManager(managerSearch);
+      }
+    }, 300);
 
-      return () => clearTimeout(delay)
-    }, [managerSearch])
+    return () => clearTimeout(delay);
+  }, [managerSearch]);
 
   // 🔹 Manager Search
   const searchManager = async (val: string) => {
-    const tempOrgId = localStorage.getItem("orgId")
-    
+    const tempOrgId = localStorage.getItem("orgId");
+
     if (selectedManager) {
-      setSelectedManager(null)
+      setSelectedManager(null);
     }
-    setManagerSearch(val)
+    setManagerSearch(val);
 
     if (val.length < 3) {
-      setManagerList([])
-      return
+      setManagerList([]);
+      return;
     }
 
-    const res = await fetch(`/api/user/search?search=${val}&orgId=${tempOrgId}`)
-    const data = await res.json()
+    const res = await fetch(
+      `/api/user/search?search=${val}&orgId=${tempOrgId}`,
+    );
+    const data = await res.json();
 
-    setManagerList(Array.isArray(data?.data) ? data.data : [])
-  }
+    setManagerList(Array.isArray(data?.data) ? data.data : []);
+  };
 
   // 🔹 Submit
   const handleSubmit = async () => {
-    setLoading(true)
+    setLoading(true);
 
     try {
-      const orgId = localStorage.getItem("orgId")
+      const orgId = localStorage.getItem("orgId");
 
-      const formData = new FormData()
+      const formData = new FormData();
 
       Object.entries(form || {}).forEach(([key, value]) => {
         if (value !== undefined && value !== null) {
-          formData.append(key, value as any)
+          formData.append(key, value as any);
         }
-      })
+      });
 
-      formData.append("orgId", orgId || "")
-      if (photo) formData.append("photo", photo)
+      formData.append("orgId", orgId || "");
+      if (photo) formData.append("photo", photo);
 
       await fetch("/api/employee", {
         method: "POST",
-        body: formData
-      })
+        body: formData,
+      });
 
-      router.push("/employees")
-      router.refresh()
+      router.push("/employees");
+      router.refresh();
     } catch (err) {
-      console.error(err)
+      console.error(err);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
-  if (!form) return null
+  if (!form) return null;
 
   return (
     <div className="bg-gray-50 min-h-screen">
-
       {/* 🔷 Title Bar */}
       <div className="bg-gradient-to-r from-cyan-700 to-cyan-900 text-white text-center py-2 shadow">
-        <h1 className="text-sm font-semibold tracking-wide">
-          Receivables
-        </h1>
+        <h1 className="text-sm font-semibold tracking-wide">Receivables</h1>
       </div>
 
       <div className="p-6">
         <div className="bg-white p-6 rounded-2xl shadow space-y-6">
-
           {/* 🔹 Row 1 */}
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -146,9 +140,7 @@ export default function CreateEmployee() {
               <input
                 className="border p-2 rounded-xl w-full mt-1"
                 value={form.name}
-                onChange={(e) =>
-                  setForm({ ...form, name: e.target.value })
-                }
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
               />
             </div>
 
@@ -175,9 +167,7 @@ export default function CreateEmployee() {
               <input
                 type="file"
                 className="border p-2 rounded-xl w-full mt-1"
-                onChange={(e) =>
-                  setPhoto(e.target.files?.[0] || null)
-                }
+                onChange={(e) => setPhoto(e.target.files?.[0] || null)}
               />
             </div>
 
@@ -193,9 +183,7 @@ export default function CreateEmployee() {
                     className="h-full object-contain rounded"
                   />
                 ) : (
-                  <span className="text-gray-400 text-sm">
-                    No Image
-                  </span>
+                  <span className="text-gray-400 text-sm">No Image</span>
                 )}
               </div>
             </div>
@@ -204,28 +192,20 @@ export default function CreateEmployee() {
           {/* 🔹 Row 3 */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-sm font-medium text-gray-600">
-                Phone
-              </label>
+              <label className="text-sm font-medium text-gray-600">Phone</label>
               <input
                 className="border p-2 rounded-xl w-full mt-1"
                 value={form.phone}
-                onChange={(e) =>
-                  setForm({ ...form, phone: e.target.value })
-                }
+                onChange={(e) => setForm({ ...form, phone: e.target.value })}
               />
             </div>
 
             <div>
-              <label className="text-sm font-medium text-gray-600">
-                Email
-              </label>
+              <label className="text-sm font-medium text-gray-600">Email</label>
               <input
                 className="border p-2 rounded-xl w-full mt-1"
                 value={form.email}
-                onChange={(e) =>
-                  setForm({ ...form, email: e.target.value })
-                }
+                onChange={(e) => setForm({ ...form, email: e.target.value })}
               />
             </div>
           </div>
@@ -277,15 +257,15 @@ export default function CreateEmployee() {
               <EmployeeSearch
                 placeholder="Search manager..."
                 fetchUrl={(query) => {
-                  const orgId = localStorage.getItem("orgId")
-                  return `/api/user/search?search=${query}&orgId=${orgId}`
+                  const orgId = localStorage.getItem("orgId");
+                  return `/api/user/search?search=${query}&orgId=${orgId}`;
                 }}
                 onSelect={(m) => {
                   setForm({
                     ...form,
                     managerId: m._id,
-                    managerName: m.name
-                  })
+                    managerName: m.name,
+                  });
                 }}
               />
             </div>
@@ -311,5 +291,5 @@ export default function CreateEmployee() {
         </div>
       </div>
     </div>
-  )
+  );
 }
