@@ -75,6 +75,11 @@ export default function CreateWorkOrderPage() {
       `/api/system-list?listName=${encodeURIComponent(name)}&orgId=${orgId}`,
     );
 
+    if (!res.ok) {
+      console.error("Failed to fetch list:", name, res.status);
+      return [];
+    }
+
     const data = await res.json();
 
     return normalizeList(data);

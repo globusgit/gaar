@@ -1,16 +1,39 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { FormField } from "@/components/ui/form-field";
+import { FormSelect } from "@/components/ui/form-select";
+import { Checkbox } from "@/components/ui/checkbox";
 import EmployeeSearch from "@/app/_components/EmployeeSearch";
+import PageHeader from "@/app/_components/PageHeader";
+
+type FormData = {
+  name: string;
+  employeeId: string;
+  phone: string;
+  email: string;
+  designation: string;
+  isManager: boolean;
+  managerId: string;
+  managerName: string;
+  modules: string[];
+};
+
+type SystemListItem = {
+  _id: string;
+  listItem: string;
+};
 
 export default function CreateEmployee() {
   const router = useRouter();
-  const orgId = useSession().data?.user?.orgId || "";
+  const { data: session } = useSession();
+  const orgId = session?.user?.orgId || "";
 
-  const [form, setForm] = useState<any>(() => ({
+  const [form, setForm] = useState<FormData>(() => ({
     name: "",
     employeeId: "",
     phone: "",
@@ -19,36 +42,51 @@ export default function CreateEmployee() {
     isManager: false,
     managerId: "",
     managerName: "",
+    modules: [],
   }));
 
   const [errors, setErrors] = useState<Record<string, boolean>>({});
 
   const [photo, setPhoto] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string>("");
-  const [designations, setDesignations] = useState<any[]>([]);
-  const [managerSearch, setManagerSearch] = useState("");
-  const [managerList, setManagerList] = useState<any[]>([]);
-  const [selectedManager, setSelectedManager] = useState<any>(null);
+  const [designations, setDesignations] = useState<SystemListItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
 
-  // 🔹 Fetch Designations
+  const fetchManagerUrl = useCallback(
+    (query: string) => {
+      return `/api/user/search?search=${query}&orgId=${orgId}`;
+    },
+    [orgId],
+  );
+
   useEffect(() => {
     const fetchDesignation = async () => {
-      const orgId = localStorage.getItem("orgId");
-
       const res = await fetch(
         `/api/system-list?listName=Designation&orgId=${orgId}`,
       );
-      const data = await res.json();
-      console.log("Fetched Designations: ", data);
 
-      setDesignations(Array.isArray(data?.data?.[0]) ? data.data[0] : []);
+      if (!res.ok) {
+        console.error("Failed to fetch designations:", res.status);
+        setDesignations([]);
+        return;
+      }
+
+      const data = await res.json();
+
+      const normalized = Array.isArray(data?.data?.[0])
+        ? (data.data[0] as SystemListItem[])
+        : Array.isArray(data?.data)
+          ? (data.data as SystemListItem[])
+          : [];
+
+      setDesignations(normalized);
     };
 
     fetchDesignation();
   }, [orgId]);
 
-  // 🔹 Photo Preview
   useEffect(() => {
     if (!photo) {
       setPhotoPreview("");
@@ -61,35 +99,6 @@ export default function CreateEmployee() {
     return () => URL.revokeObjectURL(url);
   }, [photo]);
 
-  useEffect(() => {
-    const delay = setTimeout(() => {
-      if (managerSearch.length >= 3) {
-        searchManager(managerSearch);
-      }
-    }, 300);
-
-    return () => clearTimeout(delay);
-  }, [managerSearch]);
-
-  // 🔹 Manager Search
-  const searchManager = async (val: string) => {
-    if (selectedManager) {
-      setSelectedManager(null);
-    }
-    setManagerSearch(val);
-
-    if (val.length < 3) {
-      setManagerList([]);
-      return;
-    }
-
-    const res = await fetch(`/api/user/search?search=${val}&orgId=${orgId}`);
-    const data = await res.json();
-
-    setManagerList(Array.isArray(data?.data) ? data.data : []);
-  };
-
-  // 🔹 Validation
   const validate = () => {
     const newErrors: Record<string, boolean> = {
       name: !form.name.trim(),
@@ -97,7 +106,8 @@ export default function CreateEmployee() {
       phone: !form.phone.trim(),
       email: !form.email.trim(),
       designation: !form.designation.trim(),
-      //managerName: !form.managerName.trim(),
+      managerName: !form.managerName.trim(),
+      modules: form.modules.length === 0,
     };
 
     setErrors(newErrors);
@@ -105,278 +115,298 @@ export default function CreateEmployee() {
     return !Object.values(newErrors).some(Boolean);
   };
 
-  // 🔹 Submit
   const handleSubmit = async () => {
     if (!validate()) {
       return;
     }
 
     setLoading(true);
+    setSuccessMessage("");
+    setErrorMessage("");
 
     try {
       const formData = new FormData();
 
       Object.entries(form || {}).forEach(([key, value]) => {
         if (value !== undefined && value !== null) {
-          formData.append(key, value as any);
+          if (key === "modules" && Array.isArray(value)) {
+            value.forEach((m) => formData.append("modules", m));
+          } else {
+            formData.append(key, value as string | Blob);
+          }
         }
       });
 
       formData.append("orgId", orgId);
       if (photo) formData.append("photo", photo);
 
-      await fetch("/api/employee", {
+      const res = await fetch("/api/employee", {
         method: "POST",
         body: formData,
       });
 
-      router.push("/employees");
-      router.refresh();
-    } catch (err) {
-      console.error(err);
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.message || "Failed to create employee");
+      }
+
+      setSuccessMessage(
+        `Employee created successfully! Login: ${data.user?.username || form.employeeId} / ChangeMe@123`,
+      );
+      setForm({
+        name: "",
+        employeeId: "",
+        phone: "",
+        email: "",
+        designation: "",
+        isManager: false,
+        managerId: "",
+        managerName: "",
+        modules: [],
+      });
+      setPhoto(null);
+      setPhotoPreview("");
+      setErrors({});
+    } catch (err: any) {
+      setErrorMessage(err.message || "Something went wrong");
     } finally {
       setLoading(false);
     }
   };
 
-  if (!form) return null;
-
-  const inputClass = (field: string) =>
-    `border p-2 rounded-xl w-full mt-1 ${
-      errors[field] ? "border-red-500" : ""
-    }`;
-
   return (
     <div className="space-y-4 px-0 md:px-4 lg:px-8">
+      <PageHeader title="Create New Employee" />
 
-      {/* 🔷 Title Bar */}
-      <div className="bg-gradient-to-r from-cyan-300 to-cyan-900 text-white text-center py-2 rounded-md">
-        <h1 className="text-sm font-semibold tracking-wide">
-          Create New Employee
-        </h1>
-      </div>
+      {successMessage && (
+        <div className="bg-green-50 text-green-700 text-sm p-4 rounded-lg border border-green-200">
+          {successMessage}
+        </div>
+      )}
 
-      <div className="pt-5 shadow-lg border-1 rounded-md">
+      {errorMessage && (
+        <div className="bg-red-50 text-red-700 text-sm p-4 rounded-lg border border-red-200">
+          {errorMessage}
+        </div>
+      )}
+
+      <div className="pt-5 shadow-lg border rounded-lg">
         <div className="bg-white p-6 rounded-2xl shadow space-y-6">
+          {/* Photo Upload */}
+          <div className="flex items-center gap-6">
+            <div className="h-28 w-28 rounded-full bg-gray-100 border-2 border-dashed border-gray-300 flex items-center justify-center overflow-hidden">
+              {photoPreview ? (
+                <img
+                  src={photoPreview}
+                  alt="Preview"
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <span className="text-gray-400 text-sm">No Image</span>
+              )}
+            </div>
 
-          {/* 🔹 Row 1 */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="text-sm font-bold text-gray-600">
-                Employee Name
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700">
+                Employee Photo
               </label>
-              <input
-                className={inputClass("name")}
+              <Input
+                type="file"
+                onChange={(e) => setPhoto(e.target.files?.[0] || null)}
+                className="cursor-pointer"
+              />
+            </div>
+          </div>
+
+          {/* Form Fields */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <FormField
+              label="Employee Name"
+              required
+              error={errors.name ? "* This is Mandatory" : undefined}
+            >
+              <Input
                 value={form.name}
                 onChange={(e) => {
                   setForm({ ...form, name: e.target.value });
                   if (errors.name) setErrors({ ...errors, name: false });
                 }}
+                placeholder="Enter employee name"
               />
-              {errors.name && (
-                <p className="text-red-500 text-xs mt-1 font-bold">
-                  * This is Mandatory
-                </p>
-              )}
-            </div>
+            </FormField>
 
-            <div>
-              <label className="text-sm font-bold text-gray-600">
-                Employee ID
-              </label>
-              <input
-                className={inputClass("employeeId")}
+            <FormField
+              label="Employee ID"
+              required
+              error={errors.employeeId ? "* This is Mandatory" : undefined}
+            >
+              <Input
                 value={form.employeeId}
                 onChange={(e) => {
                   setForm({ ...form, employeeId: e.target.value });
                   if (errors.employeeId)
                     setErrors({ ...errors, employeeId: false });
                 }}
+                placeholder="Enter employee ID"
               />
-              {errors.employeeId && (
-                <p className="text-red-500 text-xs mt-1 font-bold">
-                  * This is Mandatory
-                </p>
-              )}
-            </div>
-          </div>
+            </FormField>
 
-          {/* 🔹 Row 2 */}
-          <div className="grid grid-cols-2 gap-4 items-center">
-            <div>
-              <label className="text-sm font-bold text-gray-600">
-                Upload Photo
-              </label>
-              <input
-                type="file"
-                className="border p-2 rounded-xl w-full mt-1"
-                onChange={(e) =>
-                  setPhoto(e.target.files?.[0] || null)
-                }
-              />
-            </div>
-
-            <div>
-              <label className="text-sm font-bold text-gray-600">
-                Photo Preview
-              </label>
-              <div className="h-24 border rounded-xl flex items-center justify-center bg-gray-50 mt-1 w-full">
-                {photoPreview ? (
-                  <img
-                    src={photoPreview}
-                    alt="Preview"
-                    className="h-full object-contain rounded"
-                  />
-                ) : (
-                  <span className="text-gray-400 text-sm">
-                    No Image
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* 🔹 Row 3 */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="text-sm font-bold text-gray-600">
-                Phone
-              </label>
-              <input
-                className={inputClass("phone")}
+            <FormField
+              label="Phone"
+              required
+              error={errors.phone ? "* This is Mandatory" : undefined}
+            >
+              <Input
                 value={form.phone}
                 onChange={(e) => {
                   setForm({ ...form, phone: e.target.value });
                   if (errors.phone) setErrors({ ...errors, phone: false });
                 }}
+                placeholder="Enter phone number"
+                type="tel"
               />
-              {errors.phone && (
-                <p className="text-red-500 text-xs mt-1 font-bold">
-                  * This is Mandatory
-                </p>
-              )}
-            </div>
+            </FormField>
 
-            <div>
-              <label className="text-sm font-bold text-gray-600">
-                Email
-              </label>
-              <input
-                className={inputClass("email")}
+            <FormField
+              label="Email"
+              required
+              error={errors.email ? "* This is Mandatory" : undefined}
+            >
+              <Input
                 value={form.email}
                 onChange={(e) => {
                   setForm({ ...form, email: e.target.value });
                   if (errors.email) setErrors({ ...errors, email: false });
                 }}
+                placeholder="Enter email address"
+                type="email"
               />
-              {errors.email && (
-                <p className="text-red-500 text-xs mt-1 font-bold">
-                  * This is Mandatory
-                </p>
-              )}
-            </div>
-          </div>
+            </FormField>
 
-          {/* 🔹 Row 4 */}
-          <div className="grid grid-cols-2 gap-4 items-center">
-            <div>
-              <label className="text-sm font-bold text-gray-600">
-                Designation
-              </label>
-              <select
-                className={inputClass("designation")}
-                value={form.designation}
-                onChange={(e) => {
-                  setForm({ ...form, designation: e.target.value });
-                  if (errors.designation)
-                    setErrors({ ...errors, designation: false });
-                }}
-              >
-                <option value="">Select Designation</option>
-                {(designations || []).map((d: any) => (
-                  <option key={d._id} value={d.listItem}>
-                    {d.listItem}
-                  </option>
-                ))}
-              </select>
-              {errors.designation && (
-                <p className="text-red-500 text-xs mt-1 font-bold">
-                  * This is Mandatory
-                </p>
-              )}
-            </div>
+            <FormSelect
+              label="Designation"
+              value={form.designation}
+              onValueChange={(value) => {
+                setForm({ ...form, designation: value });
+                if (errors.designation)
+                  setErrors({ ...errors, designation: false });
+              }}
+              options={designations.map((d) => ({ value: d.listItem, label: d.listItem }))}
+              placeholder="Select designation"
+              required
+              error={errors.designation ? "* This is Mandatory" : undefined}
+            />
 
-            <div>
-              <label className="text-sm font-bold text-gray-600">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700">
                 Is Manager
               </label>
-              <div className="mt-2">
-                <input
-                  type="checkbox"
+              <div className="flex items-center gap-2">
+                <Checkbox
                   checked={form.isManager}
-                  onChange={(e) =>
-                    setForm({ ...form, isManager: e.target.checked })
-                  }
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* 🔹 Row 5 */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="text-sm font-bold text-gray-600">
-                Search Manager
-              </label>
-              <div
-                className={
-                  errors.managerName
-                    ? "border border-red-500 rounded-xl"
-                    : ""
-                }
-              >
-                <EmployeeSearch
-                  placeholder="Search manager..."
-                  fetchUrl={(query) => {
-                    const orgId = localStorage.getItem("orgId");
-                    return `/api/user/search?search=${query}&orgId=${orgId}`;
-                  }}
-                  onSelect={(m) => {
+                  onCheckedChange={(checked) =>
                     setForm({
                       ...form,
-                      managerId: m._id,
-                      managerName: m.name,
-                    });
-                    if (errors.managerName)
-                      setErrors({ ...errors, managerName: false });
-                  }}
+                      isManager: checked === true,
+                    })
+                  }
                 />
+                <span className="text-sm text-slate-600">Yes</span>
               </div>
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="text-sm font-medium text-slate-700 block mb-2">
+                Modules <span className="text-red-500">*</span>
+              </label>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {[
+                  { value: "dashboard", label: "Dashboard" },
+                  { value: "employees", label: "Employees" },
+                  { value: "clients", label: "Clients" },
+                  { value: "work-orders", label: "Work Orders" },
+                  { value: "tenders", label: "Tenders" },
+                  { value: "fund-request", label: "Fund Request" },
+                  { value: "payments", label: "Payments" },
+                  { value: "receivables", label: "Receivables" },
+                  { value: "organizations", label: "Organizations" },
+                  { value: "users", label: "Users" },
+                  { value: "settings", label: "Settings" },
+                  { value: "master-lists", label: "Master Lists" },
+                  { value: "system-settings", label: "System Settings" },
+                  { value: "audit-logs", label: "Audit Logs" },
+                ].map((module) => (
+                  <div key={module.value} className="flex items-center gap-2">
+                    <Checkbox
+                      id={`module-${module.value}`}
+                      checked={form.modules.includes(module.value)}
+                      onCheckedChange={(checked) => {
+                        setForm((prev) => ({
+                          ...prev,
+                          modules: checked
+                            ? [...prev.modules, module.value]
+                            : prev.modules.filter((m) => m !== module.value),
+                        }));
+                      }}
+                    />
+                    <label
+                      htmlFor={`module-${module.value}`}
+                      className="text-sm text-slate-600 cursor-pointer"
+                    >
+                      {module.label}
+                    </label>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="text-sm font-medium text-slate-700 block mb-2">
+                Reporting Manager <span className="text-red-500">*</span>
+              </label>
+              <EmployeeSearch
+                placeholder="Search manager..."
+                fetchUrl={fetchManagerUrl}
+                displayField="employeeName"
+                error={!!errors.managerName}
+                onSelect={(m) => {
+                  setForm({
+                    ...form,
+                    managerId: m._id,
+                    managerName: m.employeeName,
+                  });
+                  if (errors.managerName)
+                    setErrors({ ...errors, managerName: false });
+                }}
+              />
               {errors.managerName && (
-                <p className="text-red-500 text-xs mt-1">
+                <p className="text-sm text-red-600 mt-1">
                   * This is Mandatory
                 </p>
               )}
             </div>
           </div>
-
-          {/* 🔹 Actions */}
-          <div className="flex justify-end gap-4 pt-4 border-t">
-            <Button
-              onClick={handleSubmit}
-              disabled={loading}
-              className=" bg-cyan-900 hover:bg-cyan-600 hover:text-black"
-            >
-              {loading ? "Saving..." : "Save Employee"}
-            </Button>
-            <Button
-              onClick={() => router.push("/employees")}
-              className="bg-orange-700 hover:bg-orange-500 hover:text-black"
-            >
-              Cancel
-            </Button>
-          </div>
         </div>
+      </div>
+
+      {/* Actions */}
+      <div className="flex justify-end gap-4 pt-4 border-t">
+        <Button
+          type="button"
+          onClick={() => router.push("/employees")}
+          className="bg-orange-700 hover:bg-orange-500 text-white"
+        >
+          Cancel
+        </Button>
+        <Button
+          type="button"
+          onClick={handleSubmit}
+          disabled={loading}
+          className="bg-cyan-900 hover:bg-cyan-700"
+        >
+          {loading ? "Saving..." : "Save Employee"}
+        </Button>
       </div>
     </div>
   );

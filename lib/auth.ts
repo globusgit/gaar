@@ -3,10 +3,9 @@ import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { connectDB } from "@/lib/mongoose";
 import User from "@/models/User";
+import { rateLimit, rateLimitKey } from "@/lib/rateLimit";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  trustHost: true,
-
   providers: [
     Credentials({
       name: "Credentials",
@@ -25,31 +24,38 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           return null;
         }
 
-        const user = await User.findOne({ username }).lean();
+        const rl = rateLimit(rateLimitKey(username, "login"), 10, 60_000);
+        if (!rl.allowed) {
+          return null;
+        }
 
-        console.log("User found:", !!user);
+        const user = await User.findOne({ username }).select("+password");
 
         if (!user) {
-          console.log("No user");
+          return null;
+        }
+
+        if (user.status !== "Active") {
           return null;
         }
 
         const isValid = await bcrypt.compare(password, user.password);
 
-        console.log("Password valid:", isValid);
-
         if (!isValid) {
-          console.log("Wrong password");
           return null;
         }
-        console.log("Returning user");
+
         return {
           id: user._id.toString(),
           name: user.employeeName ?? user.username,
           username: user.username,
           employeeName: user.employeeName,
           role: user.role,
-          orgId: user.orgId,
+          orgId: user.orgId?.toString(),
+          modules: Array.isArray(user.modules)
+            ? (user.modules as unknown as string[]).map((m: string) => String(m))
+            : [],
+          isFirstLogin: user.isFirstLogin,
         };
       },
     }),
@@ -68,6 +74,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.role = user.role;
         token.employeeName = user.employeeName;
         token.orgId = user.orgId;
+        token.modules = Array.isArray(user.modules)
+          ? (user.modules as unknown as string[]).map((m: string) => String(m))
+          : [];
+        token.isFirstLogin = user.isFirstLogin;
       }
       return token;
     },
@@ -79,6 +89,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         session.user.role = token.role as string;
         session.user.employeeName = token.employeeName as string;
         session.user.orgId = token.orgId as string;
+        session.user.modules = token.modules || [];
+        session.user.isFirstLogin = token.isFirstLogin;
       }
       return session;
     },
@@ -88,5 +100,5 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     signIn: "/",
   },
 
-  secret: process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET,
+  secret: process.env.AUTH_SECRET,
 });

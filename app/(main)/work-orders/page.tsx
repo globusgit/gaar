@@ -63,7 +63,7 @@ export default function WorkOrdersPage() {
 
       setWorkOrders(data.data || []);
       setTotalPages(data.totalPages || 1);
-      setTotalRecords(data.totalRecords || 0);
+      setTotalRecords(data.total || 0);
     } catch (error) {
       console.error("Error fetching work orders:", error);
     } finally {

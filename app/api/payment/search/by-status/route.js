@@ -1,28 +1,27 @@
 import { NextResponse } from "next/server";
 import connectDB from "@/lib/mongoose";
 import PaymentInfo from "@/models/PaymentInfo";
-import ReceivableIno from "@/models/ReceivableInfo";
+import { requireAuth, sanitizeSortField } from "@/lib/apiGuard";
 
-/**
- * Get all Payments Info of an organization
- */
 export async function GET(req) {
   await connectDB();
 
+  const token = await requireAuth(req);
+  if (token instanceof Response) return token;
+
   const { searchParams } = new URL(req.url);
 
-  const search = searchParams.get("search") || "";
   const page = parseInt(searchParams.get("page")) || 1;
   const limit = parseInt(searchParams.get("limit")) || 10;
-  const orgId = searchParams.get("orgId");
-  const status = searchParams.get("status") || "";
 
-  const sortField = searchParams.get("sortField") || "createdAt";
+  const sortField = sanitizeSortField(searchParams.get("sortField") || "createdAt");
   const sortOrder = searchParams.get("sortOrder") === "asc" ? 1 : -1;
 
   const skip = (page - 1) * limit;
 
-  let query = { orgId };
+  let query = { orgId: token.orgId };
+
+  const status = searchParams.get("status") || "";
 
   if (status) {
     query.status = status;

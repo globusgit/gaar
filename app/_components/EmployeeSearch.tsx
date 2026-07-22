@@ -2,50 +2,61 @@
 
 import { Label } from "@/components/ui/label"
 import { useEffect, useState } from "react"
+import { cn } from "@/lib/utils"
 
 type Props = {
   placeholder?: string
   fetchUrl: (query: string) => string
   onSelect: (item: any) => void
   displayField?: string
+  error?: boolean
 }
 
 export default function EmployeeSearch({
   placeholder = "Search...",
   fetchUrl,
   onSelect,
-  displayField = "name"
+  displayField = "name",
+  error,
 }: Props) {
   const [query, setQuery] = useState("")
   const [list, setList] = useState<any[]>([])
   const [activeIndex, setActiveIndex] = useState(-1)
   const [show, setShow] = useState(false)
 
-  //  Debounce Search
+  // Debounce Search
   useEffect(() => {
     const delay = setTimeout(async () => {
-      if (query.length < 3) {
-        console.log
-        setList([])
-        return
+      if (query.length < 2) {
+        setList([]);
+        return;
       }
-      console.log("Fetching:", fetchUrl(query)) 
-      const res = await fetch(fetchUrl(query))
-      
-      const data = await res.json()
-      console.log("API Response:", data)
-      const result = Array.isArray(data) 
-                          ? data 
-                          : Array.isArray(data?.data)
-                          ? data.data
-                          : []
 
-      setList(result)
-      setShow(true)
-    }, 300)
+      try {
+        const res = await fetch(fetchUrl(query));
 
-    return () => clearTimeout(delay)
-  }, [query])
+        if (!res.ok) {
+          setList([]);
+          return;
+        }
+
+        const data = await res.json();
+
+        const result = Array.isArray(data)
+          ? data
+          : Array.isArray(data?.data)
+            ? data.data
+            : [];
+
+        setList(result);
+        setShow(true);
+      } catch {
+        setList([]);
+      }
+    }, 300);
+
+    return () => clearTimeout(delay);
+  }, [query, fetchUrl]);
 
   // Keyboard Navigation
   const handleKeyDown = (e: any) => {
@@ -88,11 +99,13 @@ export default function EmployeeSearch({
   return (
     <div className="relative">
       <input
-        className="border p-2 rounded-xl w-full"
+        className={cn(
+          "border p-2 rounded-xl w-full",
+          error && "border-red-500 focus-visible:ring-red-500"
+        )}
         placeholder={placeholder}
         value={query}
         onChange={(e) => {
-          console.log("Typing:", e.target.value)
           setQuery(e.target.value)
           setActiveIndex(-1)
         }}

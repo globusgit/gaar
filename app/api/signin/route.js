@@ -2,25 +2,36 @@ import { NextResponse } from "next/server";
 import connectDB from "@/lib/mongoose";
 import User from "@/models/User";
 import bcrypt from "bcryptjs";
+import { rateLimit, rateLimitKey } from "@/lib/rateLimit";
 
 export async function POST(req) {
-  const { username, password } = await req.json();
-  // console.log("Username: ", username);
-  // console.log("password: ", password);
   try {
+    const { username, password } = await req.json();
+
+    if (!username || !password) {
+      return NextResponse.json(
+        { message: "Invalid credentials" },
+        { status: 401 },
+      );
+    }
+
+    const rl = rateLimit(rateLimitKey(username, "login"), 10, 60_000);
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { message: "Too many attempts. Please try again later." },
+        { status: 429 },
+      );
+    }
+
     await connectDB();
-    //console.log("After DB Connect");
-    const user = await User.findOne({ username });
-    //console.log("After User fetch", user);
+    const user = await User.findOne({ username }).select("+password");
     if (!user) {
       return NextResponse.json(
         { message: "Invalid credentials" },
         { status: 401 },
       );
     }
-    //console.log("Before comparing password");
     const isValid = await bcrypt.compare(password, user.password);
-    //console.log("After validating password");
     if (!isValid) {
       return NextResponse.json(
         { message: "Invalid credentials" },

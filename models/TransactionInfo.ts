@@ -4,18 +4,18 @@ const TransactionInfoSchema = new mongoose.Schema(
   {
     amount: {
       type: Number,
-      require: true,
+      required: true,
     },
     txnDate: {
       type: Date,
-      require: true,
+      required: true,
     },
     txnType: {
       type: String,
     },
     paidTo: {
       type: String,
-      require: true,
+      required: true,
     },
     entityType: {
       type: String,
@@ -28,11 +28,14 @@ const TransactionInfoSchema = new mongoose.Schema(
     },
     orgId: {
       type: String,
-      require: true,
+      required: true,
     },
   },
   { timestamps: true },
 );
+
+TransactionInfoSchema.index({ orgId: 1, createdAt: -1 });
+TransactionInfoSchema.index({ orgId: 1, type: 1 });
 
 export default mongoose.models.TransactionInfo ||
   mongoose.model("TransactionInfo", TransactionInfoSchema);

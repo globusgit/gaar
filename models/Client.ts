@@ -1,15 +1,14 @@
 import mongoose from "mongoose"
-import { StringDecoder } from "string_decoder"
 
 const ClientSchema = new mongoose.Schema(
     {
         client:{
             type: String,
-            require: true
+            required: true
         },
         clientId:{
             type:String,
-            require: true
+            required: true
         },
         website:{
             type: String
@@ -25,14 +24,17 @@ const ClientSchema = new mongoose.Schema(
         },
         state:{
             type: String,
-            require: true
+            required: true
         },
         orgId:{
             type: String,
-            require: true
+            required: true
         }
     },
     {timestamps: true}
 )
+
+ClientSchema.index({ orgId: 1, clientId: 1 });
+ClientSchema.index({ orgId: 1, client: 1 });
 
 export default mongoose.models.Client || mongoose.model("Client", ClientSchema)

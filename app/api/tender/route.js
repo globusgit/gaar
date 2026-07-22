@@ -1,16 +1,56 @@
 import { NextResponse } from "next/server";
 import connectDB from "@/lib/mongoose";
 import TenderInfo from "@/models/TenderInfo";
+import { logActivity } from "@/lib/activityLog";
+import { notifyOrg } from "@/lib/notification";
+import { requireAuth, requireOrgScope, sanitizeRegex, sanitizeSortField } from "@/lib/apiGuard";
 
 export async function POST(req) {
-  const body = await req.json();
-  console.log("After passing data to constants");
+  const token = await requireAuth(req);
+  if (token instanceof Response) return token;
+
   try {
     await connectDB();
-    console.log("After connecting to db");
+    const body = await req.json();
+
+    const allowedFields = [
+      "tenderNo",
+      "description",
+      "tenderDate",
+      "tenderType",
+      "preBidMeetingDate",
+      "tenderSubmissionLastDate",
+      "tenderOpeningDate",
+      "state",
+      "country",
+      "vertical",
+      "subVertical",
+      "emdAmount",
+      "documentFee",
+      "transactionFee",
+      "corpusFund",
+      "bgAmount",
+      "tenderingDepartment",
+      "client",
+      "tenderValue",
+      "owner",
+      "remarks",
+      "isMAFRequired",
+      "tenderManager",
+      "tenderManagerEmail",
+      "tenderManagerPhone",
+      "tenderOwner",
+      "scm",
+      "clientId",
+    ];
+    const safeBody = {};
+    for (const key of allowedFields) {
+      if (body[key] !== undefined) safeBody[key] = body[key];
+    }
 
     const tenderToCreate = new TenderInfo({
-      ...body,
+      ...safeBody,
+      orgId: token.orgId,
       status: "Draft",
       position: "Draft",
       emdPaymentStatus: "Pending",
@@ -29,10 +69,26 @@ export async function POST(req) {
       emdRefundStatus: "Pending",
     });
     const createdTender = await TenderInfo.create(tenderToCreate);
-    console.log(createdTender);
-    return new NextResponse({ message: "Success!" }, { status: 200 });
+
+    await logActivity({
+      activity: "Tender Created",
+      description: `Tender ${createdTender.tenderNo} was created`,
+      entity: "Tender",
+      entityId: createdTender._id.toString(),
+      orgId: token.orgId,
+      req: req,
+    });
+
+    await notifyOrg(
+      token.orgId,
+      "Tender created",
+      `Tender ${createdTender.tenderNo} was created.`,
+      "success"
+    );
+
+    return NextResponse.json({ message: "Success!", data: createdTender }, { status: 201 });
   } catch (err) {
-    return new NextResponse(
+    return NextResponse.json(
       { message: "Something went wrong!" },
       { status: 500 },
     );
@@ -42,9 +98,12 @@ export async function POST(req) {
 export async function GET(req) {
   try {
     await connectDB();
+
+    const token = await requireAuth(req);
+    if (token instanceof Response) return token;
+
     const { searchParams } = new URL(req.url);
-    const orgId = searchParams.get("orgId");
-    console.log("Org Id: " + orgId);
+    const orgId = token.orgId;
     const page = parseInt(searchParams.get("page")) || 1;
     const limit = parseInt(searchParams.get("limit")) || 20;
     const skip = (page - 1) * limit;
@@ -53,7 +112,7 @@ export async function GET(req) {
       TenderInfo.find({ orgId }).skip(skip).limit(limit),
       TenderInfo.countDocuments({ orgId }),
     ]);
-    console.log("Tenders: ", tenders);
+
     return NextResponse.json(
       {
         data: tenders,

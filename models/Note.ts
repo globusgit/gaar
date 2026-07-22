@@ -4,11 +4,11 @@ const NoteSchema = new mongoose.Schema(
   {
     date: {
       type: Date,
-      require: true,
+      required: true,
     },
     notes: {
       type: String,
-      require: true,
+      required: true,
     },
     loggedBy: {
       type: String,
@@ -18,15 +18,15 @@ const NoteSchema = new mongoose.Schema(
     },
     entityType: {
       type: String,
-      require: true,
+      required: true,
     },
     entityId: {
       type: String,
-      require: true,
+      required: true,
     },
     orgId: {
       type: String,
-      require: true,
+      required: true,
     },
   },
   { timestamps: true },

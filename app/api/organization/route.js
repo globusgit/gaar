@@ -1,12 +1,21 @@
-import bcrypt from "bcryptjs";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import User from "@/models/User";
 import Organization from "@/models/Organization";
 import connectDB from "@/lib/mongoose";
+import { logActivity } from "@/lib/activityLog";
+import { notifyOrg } from "@/lib/notification";
+import { requireAuth, requireOrgScope, sanitizeRegex, sanitizeSortField } from "@/lib/apiGuard";
+import bcrypt from "bcryptjs";
 
 export async function POST(req) {
-  //const body = await req.json();
-  // await connectDB();
+  const token = await requireAuth(req);
+  if (token instanceof Response) return token;
+
+  if (token.role !== "SYS_ADMIN" && token.role !== "ADMIN") {
+    return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+  }
+
+  const body = await req.json();
   const {
     orgName,
     contactName,
@@ -24,14 +33,7 @@ export async function POST(req) {
     industryType,
     modeOfRegistration,
     orgType,
-    password,
-    confirmPassword,
-  } = await req.json();
-
-  const isValidEmail = (email) => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
-  };
+  } = body;
 
   if (
     !orgName ||
@@ -40,43 +42,31 @@ export async function POST(req) {
     !address ||
     !city ||
     !state ||
-    !country ||
-    !password ||
-    !confirmPassword
+    !country
   ) {
     return NextResponse.json(
       { message: "Some required fields are missing" },
       { status: 400 },
     );
   }
-  if (!isValidEmail) {
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
     return NextResponse.json(
-      { message: "Email is not valied" },
-      { status: 400 },
-    );
-  }
-  if (confirmPassword !== password) {
-    return NextResponse.json(
-      { message: "Password and Confirm Password do not match." },
+      { message: "Email is not valid" },
       { status: 400 },
     );
   }
 
   try {
-    console.log("Inside try block....");
     await connectDB();
-    console.log("After establishing the connection");
-    /**
-     * check if the an organization is created with the same phone number, email or name.
-     * If exists do now allow the registration
-     */
     const existingOrganizationEmail = await Organization.findOne({ email });
     const existingOrganizationPhone = await Organization.findOne({ phone });
     const existingOrganization = await Organization.findOne({ orgName });
     if (
       existingOrganization ||
       existingOrganizationPhone ||
-      existingOrganization
+      existingOrganizationEmail
     ) {
       return NextResponse.json(
         {
@@ -87,12 +77,10 @@ export async function POST(req) {
       );
     }
 
-    const hashedPws = await bcrypt.hash(password, 10);
     const docCount = (await Organization.countDocuments()) + 1;
-    const orgId = "ORG" + docCount;
+    const orgId = "ORG" + String(docCount).padStart(3, "0");
     const status = "Active";
     const regDate = new Date();
-    console.log("Before creating new organization ");
     const newOrganization = new Organization({
       orgName,
       orgId,
@@ -115,25 +103,46 @@ export async function POST(req) {
       regDate,
     });
 
-    console.log("Before saving the new organization: ", newOrganization);
     const createdOrg = await Organization.create(newOrganization);
-    //const newOrgCreated =
-    console.log("After saving the new organization");
 
     if (createdOrg) {
+      const defaultPassword = process.env.DEFAULT_ORG_USER_PASSWORD;
+      if (!defaultPassword) {
+        return NextResponse.json(
+          { message: "Server misconfiguration: DEFAULT_ORG_USER_PASSWORD is not set" },
+          { status: 500 },
+        );
+      }
+      const hashedPassword = await bcrypt.hash(defaultPassword, 10);
       const newOrgUser = new User({
         username: phone,
-        password: hashedPws,
+        password: hashedPassword,
         employeeName: contactName,
         status: "Active",
         role: "ORG_USER",
         isFirstLogin: true,
         orgId: createdOrg.orgId,
       });
-      const newOrgUserCretaed = await User.create(newOrgUser);
-      if (newOrgUserCretaed) {
+      const newOrgUserCreated = await User.create(newOrgUser);
+      if (newOrgUserCreated) {
+        await logActivity({
+          activity: "Organization Created",
+          description: `Organization ${createdOrg.orgName} was created`,
+          entity: "Organization",
+          entityId: createdOrg._id.toString(),
+          orgId: createdOrg.orgId,
+          req: req,
+        });
+
+        await notifyOrg(
+          createdOrg.orgId,
+          "Organization registered",
+          `Organization ${createdOrg.orgName} was registered.`,
+          "success"
+        );
+
         return NextResponse.json(
-          { message: "Organization registered succussfully!" },
+          { message: "Organization registered successfully!" },
           { status: 201 },
         );
       } else {
@@ -158,6 +167,9 @@ export async function POST(req) {
 }
 
 export async function GET(req) {
+  const token = await requireAuth(req);
+  if (token instanceof Response) return token;
+
   try {
     await connectDB();
     const { searchParams } = new URL(req.url);
@@ -167,25 +179,26 @@ export async function GET(req) {
     const globalFilter = searchParams.get("globalFilter") || "";
     const skip = (page - 1) * limit;
 
+    const query = {};
+    if (token.role !== "SYS_ADMIN" && token.role !== "ADMIN") {
+      query.orgId = token.orgId;
+    } else if (searchParams.get("orgId")) {
+      query.orgId = searchParams.get("orgId");
+    }
+
+    if (globalFilter) {
+      const safeFilter = sanitizeRegex(globalFilter);
+      query.$or = [
+        { orgName: { $regex: safeFilter, $options: "i" } },
+        { email: { $regex: safeFilter, $options: "i" } },
+        { phone: { $regex: safeFilter, $options: "i" } },
+      ];
+    }
+
     const [orgs, total] = await Promise.all([
-      Organization.find({
-        $or: [
-          { orgName: { $regex: globalFilter, $options: "i" } },
-          { email: { $regex: globalFilter, $options: "i" } },
-          { phone: { $regex: globalFilter, $options: "i" } },
-        ],
-      })
-        .skip(skip)
-        .limit(limit),
-      Organization.countDocuments({
-        $or: [
-          { orgName: { $regex: globalFilter, $options: "i" } },
-          { email: { $regex: globalFilter, $options: "i" } },
-          { phone: { $regex: globalFilter, $options: "i" } },
-        ],
-      }),
+      Organization.find(query).skip(skip).limit(limit),
+      Organization.countDocuments(query),
     ]);
-    console.log("Organizations: ", orgs);
     return NextResponse.json(
       {
         data: orgs,

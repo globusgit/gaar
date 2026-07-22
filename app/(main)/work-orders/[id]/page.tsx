@@ -64,6 +64,12 @@ export default function EditWorkOrderPage() {
           name,
         )}&orgId=${session?.user?.orgId}`,
       );
+
+      if (!res.ok) {
+        console.error("Failed to fetch list:", name, res.status);
+        return [];
+      }
+
       const retListData = await res.json();
       //console.log("Response List Data: ", retListData);
 
@@ -152,11 +158,36 @@ export default function EditWorkOrderPage() {
     });
   };
 
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+
+    try {
+      const res = await fetch(`/api/work-order/${params.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(workOrder),
+      });
+
+      if (res.ok) {
+        router.push("/work-orders");
+      } else {
+        const data = await res.json();
+        alert(data.message || "Failed to save work order");
+      }
+    } catch (err) {
+      alert("Something went wrong");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <>
     <div className="space-y-4 px-0 md:px-4 lg:px-8">
       <PageHeader title="Edit Work Order" />
 
+      <form onSubmit={handleSubmit}>
       <div className="grid gap-6 lg:grid-cols-10">
         {/* 70% */}
         <div className="lg:col-span-7">
@@ -388,7 +419,7 @@ export default function EditWorkOrderPage() {
                       onChange={(val) =>
                         setWorkOrder({
                           ...workOrder,
-                          bgAmount: val,
+                          woValue: val,
                         })
                       }
                     />
@@ -495,7 +526,7 @@ export default function EditWorkOrderPage() {
                     Cancel
                   </Button>
 
-                  <Button onClick={handleChange} disabled={saving} className="bg-cyan-900 hover:bg-cyan-700">
+                  <Button type="submit" disabled={saving} className="bg-cyan-900 hover:bg-cyan-700">
                     {saving ? "Saving..." : "Save Changes"}
                   </Button>
                 </CardContent>
@@ -511,6 +542,7 @@ export default function EditWorkOrderPage() {
           </div>
         </div>
       </div>
+      </form>
       </div>
     </>
   );

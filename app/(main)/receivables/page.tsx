@@ -43,6 +43,7 @@ export default function ReceivablesPage() {
 
     setData(result.data);
     setTotal(result.total);
+    setTotalRecords(result.total || 0);
   };
 
   useEffect(() => {

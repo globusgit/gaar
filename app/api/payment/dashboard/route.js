@@ -1,26 +1,31 @@
 import { NextResponse } from "next/server";
 import connectDB from "@/lib/mongoose";
 import PaymentInfo from "@/models/PaymentInfo";
+import { requireAuth } from "@/lib/apiGuard";
 
 export async function GET(req, res) {
   try {
     await connectDB();
+
+    const token = await requireAuth(req);
+    if (token instanceof Response) return token;
+
     const { searchParams } = new URL(req.url);
-    const orgId = searchParams.get("orgId");
+
     const totalPaymentAmount = await PaymentInfo.aggregate([
-      { $match: { orgId: orgId } },
+      { $match: { orgId: token.orgId } },
       { $group: { _id: null, total: { $sum: "$requestAmount" } } },
     ]);
     const totalPaidAmount = await PaymentInfo.aggregate([
-      { $match: { orgId: orgId } },
+      { $match: { orgId: token.orgId } },
       { $group: { _id: null, total: { $sum: "$paidAmount" } } },
     ]);
     const totalBalancePaymentAmount = await PaymentInfo.aggregate([
-      { $match: { orgId: orgId } },
+      { $match: { orgId: token.orgId } },
       { $group: { _id: null, total: { $sum: "$balanceAmount" } } },
     ]);
     const totalPastDueDatePayments = await PaymentInfo.countDocuments({
-      orgId: orgId,
+      orgId: token.orgId,
       dueDate: { $lt: new Date() },
       balanceAmount: { $gt: 0 },
     });
@@ -34,7 +39,6 @@ export async function GET(req, res) {
       { status: 200 },
     );
   } catch (error) {
-    console.error("Error fetching dashboard data:", error);
     return NextResponse.json(
       { error: "Internal Server Error" },
       { status: 500 },

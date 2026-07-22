@@ -1,48 +1,47 @@
 import mongoose from "mongoose";
-import { unique } from "next/dist/build/utils";
 
 const OrganizationSchema = new mongoose.Schema(
   {
     orgName: {
       type: String,
-      require: true,
+      required: true,
       unique: true,
     },
     orgId: {
       type: String,
-      require: true,
+      required: true,
       unique: true,
     },
     contactName: {
       type: String,
-      require: true,
+      required: true,
     },
     contactDesignation: {
       type: String,
-      require: true,
+      required: true,
     },
     phone: {
       type: String,
-      require: true,
+      required: true,
       unique: true,
     },
     email: {
       type: String,
-      require: true,
+      required: true,
       unique: true,
     },
     website: {
       type: String,
-      require: true,
+      required: true,
       unique: true,
     },
     address: {
       type: String,
-      require: true,
+      required: true,
     },
     city: {
       type: String,
-      require: true,
+      required: true,
     },
     state: {
       type: String,

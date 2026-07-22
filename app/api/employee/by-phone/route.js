@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
 import connectDB from "@/lib/mongoose";
 import Employee from "@/models/Employee";
+import { requireAuth, requireOrgScope, sanitizeRegex, sanitizeSortField } from "@/lib/apiGuard";
 
 export async function GET(req) {
+  const token = await requireAuth(req);
+  if (token instanceof Response) return token;
+
   try {
     await connectDB();
     const { searchParams } = new URL(req.url);
@@ -18,7 +22,6 @@ export async function GET(req) {
     }
 
     const employees = await Employee.findOne(query);
-    console.log("Employees: ", employees);
     return NextResponse.json(
       {
         data: employees,

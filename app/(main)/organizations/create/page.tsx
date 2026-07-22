@@ -3,6 +3,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 
 import PageHeader from "@/app/_components/PageHeader";
 
@@ -11,14 +12,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
-
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 
 const initialState = {
   orgName: "",
@@ -39,27 +32,82 @@ const initialState = {
   industryType: "",
   modeOfRegistration: "",
   orgType: "",
-  password: "",
-  confirmPassword: "",
 };
 
 export default function CreateOrganization() {
   const router = useRouter();
+  const { data: session } = useSession();
 
   const [form, setForm] = useState(initialState);
 
-  const [countries, setCountries] = useState<any[]>([]);
-  const [states, setStates] = useState<any[]>([]);
+  const [countries, setCountries] = useState<{ country: string }[]>([]);
+  const [states, setStates] = useState<{ state: string }[]>([]);
 
-  const [industryTypes, setIndustryTypes] = useState<any[]>([]);
-  const [orgTypes, setOrgTypes] = useState<any[]>([]);
-  const [registrationModes, setRegistrationModes] = useState<any[]>([]);
+  const [industryTypes, setIndustryTypes] = useState<{ _id: string; listItem: string }[]>([]);
+  const [orgTypes, setOrgTypes] = useState<{ _id: string; listItem: string }[]>([]);
+  const [registrationModes, setRegistrationModes] = useState<{ _id: string; listItem: string }[]>([]);
 
   const handleChange = (key: string, value: string) => {
     setForm((prev) => ({
       ...prev,
       [key]: value,
     }));
+  };
+
+  const normalizeList = (data: unknown) => {
+    if (!data || typeof data !== "object") return [];
+    if (Array.isArray(data)) return data;
+
+    const obj = data as Record<string, unknown>;
+    if (Array.isArray(obj.data)) {
+      if (Array.isArray(obj.data[0])) return obj.data[0];
+      return obj.data;
+    }
+
+    return [];
+  };
+
+  const fetchDropdowns = async () => {
+    try {
+      const orgId = session?.user?.orgId || "";
+      const [countriesRes, industryRes, orgTypeRes, regModeRes] =
+        await Promise.all([
+          fetch("/api/country-info"),
+          fetch(`/api/system-list?listName=INDUSTRY TYPE&orgId=${orgId}`),
+          fetch(`/api/system-list?listName=ORG TYPE&orgId=${orgId}`),
+          fetch(`/api/system-list?listName=REGISTRATION MODE&orgId=${orgId}`),
+        ]);
+
+      const countriesData = await countriesRes.json();
+      const industryData = await industryRes.json();
+      const orgTypeData = await orgTypeRes.json();
+      const regModeData = await regModeRes.json();
+
+      setCountries(Array.isArray(countriesData) ? countriesData : []);
+      setIndustryTypes(normalizeList(industryData));
+      setOrgTypes(normalizeList(orgTypeData));
+      setRegistrationModes(normalizeList(regModeData));
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
+  const fetchStates = async (country: string) => {
+    try {
+      const response = await fetch(
+        `/api/country-info/states?country=${country}`,
+      );
+
+      if (!response.ok) {
+        console.error("Failed to fetch states:", response.status);
+        setStates([]);
+        return;
+      }
+
+      setStates(await response.json());
+    } catch (error) {
+      console.log(error);
+    }
   };
 
   useEffect(() => {
@@ -72,49 +120,6 @@ export default function CreateOrganization() {
     }
   }, [form.country]);
 
-  const normalizeList = (data: any) => {
-    if (!data) return [];
-    if (Array.isArray(data)) return data;
-
-    if (Array.isArray(data.data)) {
-      if (Array.isArray(data.data[0])) return data.data[0];
-      return data.data;
-    }
-
-    return [];
-  };
-
-  const fetchDropdowns = async () => {
-    try {
-      const [countriesRes, industryRes, orgTypeRes, regModeRes] =
-        await Promise.all([
-          fetch("/api/country-info"),
-          fetch("/api/system-list?listName=INDUSTRY TYPE"),
-          fetch("/api/system-list?listName=ORG TYPE"),
-          fetch("/api/system-list?listName=REGISTRATION MODE"),
-        ]);
-
-      setCountries(await countriesRes.json());
-      setIndustryTypes(normalizeList(await industryRes.json()));
-      setOrgTypes(normalizeList(await orgTypeRes.json()));
-      setRegistrationModes(normalizeList(await regModeRes.json()));
-    } catch (error) {
-      console.log(error);
-    }
-  };
-
-  const fetchStates = async (country: string) => {
-    try {
-      const response = await fetch(
-        `/api/country-info/states?country=${country}`,
-      );
-
-      setStates(await response.json());
-    } catch (error) {
-      console.log(error);
-    }
-  };
-
   const validateForm = () => {
     if (
       !form.orgName ||
@@ -123,9 +128,7 @@ export default function CreateOrganization() {
       !form.address ||
       !form.city ||
       !form.state ||
-      !form.country ||
-      !form.password ||
-      !form.confirmPassword
+      !form.country
     ) {
       alert("Please fill all mandatory fields");
       return false;
@@ -142,11 +145,6 @@ export default function CreateOrganization() {
 
     if (!emailRegex.test(form.email)) {
       alert("Invalid email");
-      return false;
-    }
-
-    if (form.password !== form.confirmPassword) {
-      alert("Passwords do not match");
       return false;
     }
 
@@ -370,20 +368,6 @@ export default function CreateOrganization() {
               label="GST No"
               value={form.gstNo}
               onChange={(v: string) => handleChange("gstNo", v)}
-            />
-
-            <FormInput
-              label="Password *"
-              type="password"
-              value={form.password}
-              onChange={(v: string) => handleChange("password", v)}
-            />
-
-            <FormInput
-              label="Confirm Password *"
-              type="password"
-              value={form.confirmPassword}
-              onChange={(v: string) => handleChange("confirmPassword", v)}
             />
           </div>
 

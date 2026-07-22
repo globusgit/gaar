@@ -1,35 +1,33 @@
 import fs from "fs";
 import path from "path";
 import { UPLOAD_DIR } from "@/lib/uploadConfig";
+import { requireAuth } from "@/lib/apiGuard";
 
 export async function GET(req, context) {
   try {
-    // ✅ get params correctly (no await needed)
+    const token = await requireAuth(req);
+    if (token instanceof Response) return token;
+
     const { path: fileParts } = await context.params;
 
     if (!fileParts || fileParts.length === 0) {
       return new Response("Invalid path", { status: 400 });
     }
 
-    // decode URL parts
     const decodedPath = fileParts.map((p) => decodeURIComponent(p));
-
-    // build full file path
     const filePath = path.join(UPLOAD_DIR, ...decodedPath);
+    const resolvedPath = path.resolve(filePath);
 
-    console.log("Serving file:", filePath);
-    console.log("UPLOAD_DIR:", UPLOAD_DIR);
-    console.log("Requested:", decodedPath);
-    console.log("Resolved path:", filePath);
-    console.log("Exists:", fs.existsSync(filePath));
+    if (!resolvedPath.startsWith(path.resolve(UPLOAD_DIR))) {
+      return new Response("Forbidden", { status: 403 });
+    }
 
-    if (!fs.existsSync(filePath)) {
+    if (!fs.existsSync(resolvedPath)) {
       return new Response("File not found", { status: 404 });
     }
 
-    const fileBuffer = fs.readFileSync(filePath);
+    const fileBuffer = fs.readFileSync(resolvedPath);
 
-    // ✅ FIX: get filename from path
     const fileName = decodedPath[decodedPath.length - 1];
 
     const ext = fileName.split(".").pop().toLowerCase();
@@ -44,11 +42,10 @@ export async function GET(req, context) {
     return new Response(fileBuffer, {
       headers: {
         "Content-Type": mimeTypes[ext] || "application/octet-stream",
-        "Cache-Control": "public, max-age=31536000", // optional performance boost
+        "Cache-Control": "public, max-age=3153603600",
       },
     });
   } catch (err) {
-    console.error("ERROR:", err);
     return new Response("Internal Server Error", { status: 500 });
   }
 }

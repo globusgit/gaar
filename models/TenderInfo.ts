@@ -1,11 +1,10 @@
 import mongoose from "mongoose";
-import { unique } from "next/dist/build/utils";
 
 const TenderInfoSchema = new mongoose.Schema(
   {
     tenderNo: {
       type: String,
-      require: true,
+      required: true,
       unique: true,
     },
     description: {
@@ -148,7 +147,7 @@ const TenderInfoSchema = new mongoose.Schema(
     },
     orgId: {
       type: String,
-      require: true,
+      required: true,
     },
   },
   { timestamps: true },

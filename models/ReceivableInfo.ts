@@ -4,23 +4,23 @@ const ReceivableInfoSchema = new mongoose.Schema(
   {
     type: {
       type: String,
-      require: true,
+      required: true,
     },
     description: {
       type: String,
-      require: true,
+      required: true,
     },
     receivableAmount: {
       type: Number,
-      require: true,
+      required: true,
     },
     balanceReceivableAmount: {
       type: Number,
-      require: true,
+      required: true,
     },
     receivedAmount: {
       type: Number,
-      require: true,
+      required: true,
     },
     woNo: {
       type: String,
@@ -33,19 +33,19 @@ const ReceivableInfoSchema = new mongoose.Schema(
     },
     subVertical: {
       type: String,
-      require: true,
+      required: true,
     },
     paymentFrom: {
       type: String,
-      require: true,
+      required: true,
     },
     owner: {
       type: String,
-      require: true,
+      required: true,
     },
     status: {
       type: String,
-      require: true,
+      required: true,
     },
     receivedDate: {
       type: Date,
@@ -67,11 +67,14 @@ const ReceivableInfoSchema = new mongoose.Schema(
     },
     orgId: {
       type: String,
-      require: true,
+      required: true,
     },
   },
   { timestamps: true },
 );
+
+ReceivableInfoSchema.index({ orgId: 1, createdAt: -1 });
+ReceivableInfoSchema.index({ orgId: 1, paymentFrom: 1 });
 
 export default mongoose.models.ReceivableInfo ||
   mongoose.model("ReceivableInfo", ReceivableInfoSchema);

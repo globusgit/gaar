@@ -1,20 +1,22 @@
 import { NextResponse } from "next/server";
 import connectDB from "@/lib/mongoose";
 import ReceivableInfo from "@/models/ReceivableInfo";
+import { requireAuth } from "@/lib/apiGuard";
 
 export async function GET(req, res) {
   try {
     await connectDB();
+
+    const token = await requireAuth(req);
+    if (token instanceof Response) return token;
+
     const { searchParams } = new URL(req.url);
-    const orgId = searchParams.get("orgId");
-    let filter = { orgId };
+    let filter = { orgId: token.orgId };
     const page = parseInt(searchParams.get("page")) || 1;
     const limit = parseInt(searchParams.get("limit")) || 20;
     const skip = (page - 1) * limit;
 
-    // fetch where isApproved and isAuthorized are false
-    filter.status = "Pending";
-    filter.status = "Partially Received";
+    filter.status = { $in: ["Pending", "Partially Received"] };
 
     const data = await ReceivableInfo.find(filter).skip(skip).limit(limit);
     const total = await ReceivableInfo.countDocuments(filter);

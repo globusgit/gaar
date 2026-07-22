@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -19,6 +20,7 @@ import {
 export default function EditOrganizationPage() {
   const params = useParams();
   const router = useRouter();
+  const { data: session } = useSession();
 
   const id = params?.id as string;
 
@@ -108,11 +110,24 @@ export default function EditOrganizationPage() {
   // Countries API
   const fetchCountries = async () => {
     try {
-      const res = await fetch("/api/country-info/countries");
+      const res = await fetch("/api/country-info");
+
+      if (!res.ok) {
+        console.error("Failed to fetch countries:", res.status);
+        setCountries([]);
+        return;
+      }
 
       const data = await res.json();
 
-      setCountries(data || []);
+      const mapped = Array.isArray(data)
+        ? data.map((item: any) => ({
+            value: item.country,
+            label: item.country,
+          }))
+        : [];
+
+      setCountries(mapped);
     } catch (error) {
       console.error(error);
     }
@@ -123,9 +138,22 @@ export default function EditOrganizationPage() {
     try {
       const res = await fetch(`/api/country-info/states?country=${country}`);
 
+      if (!res.ok) {
+        console.error("Failed to fetch states:", res.status);
+        setStates([]);
+        return;
+      }
+
       const data = await res.json();
 
-      setStates(data || []);
+      const mapped = Array.isArray(data)
+        ? data.map((item: any) => ({
+            value: item.state,
+            label: item.state,
+          }))
+        : [];
+
+      setStates(mapped);
     } catch (error) {
       console.error(error);
     }
@@ -134,22 +162,36 @@ export default function EditOrganizationPage() {
   // Fetch dropdown lists
   const fetchLists = async () => {
     try {
-      const [industryRes, modeRes, orgTypeRes] = await Promise.all([
-        fetch("/api/lists/industry-type"),
-        fetch("/api/lists/mode-of-registration"),
-        fetch("/api/lists/org-type"),
-      ]);
+      const orgId = session?.user?.orgId;
+      const [industryRes, modeRes, orgTypeRes] =
+        await Promise.all([
+          fetch(`/api/system-list?listName=INDUSTRY TYPE&orgId=${orgId}`),
+          fetch(`/api/system-list?listName=REGISTRATION MODE&orgId=${orgId}`),
+          fetch(`/api/system-list?listName=ORG TYPE&orgId=${orgId}`),
+        ]);
 
       const industryData = await industryRes.json();
       const modeData = await modeRes.json();
       const orgTypeData = await orgTypeRes.json();
 
-      setIndustryTypes(industryData || []);
-      setModeOfRegistrations(modeData || []);
-      setOrgTypes(orgTypeData || []);
+      setIndustryTypes(normalizeList(industryData));
+      setModeOfRegistrations(normalizeList(modeData));
+      setOrgTypes(normalizeList(orgTypeData));
     } catch (error) {
       console.error(error);
     }
+  };
+
+  const normalizeList = (data: any) => {
+    if (!data) return [];
+    if (Array.isArray(data)) return data;
+
+    if (Array.isArray(data.data)) {
+      if (Array.isArray(data.data[0])) return data.data[0];
+      return data.data;
+    }
+
+    return [];
   };
 
   const handleChange = (
@@ -181,7 +223,7 @@ export default function EditOrganizationPage() {
         throw new Error("Failed to update organization");
       }
 
-      router.push("/organization");
+      router.push("/organizations");
       router.refresh();
     } catch (error) {
       console.error(error);
@@ -359,8 +401,8 @@ export default function EditOrganizationPage() {
 
               <SelectContent>
                 {industryTypes.map((item: any) => (
-                  <SelectItem key={item.value} value={item.value}>
-                    {item.label}
+                  <SelectItem key={item._id} value={item.listItem}>
+                    {item.listItem}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -386,8 +428,8 @@ export default function EditOrganizationPage() {
 
               <SelectContent>
                 {modeOfRegistrations.map((item: any) => (
-                  <SelectItem key={item.value} value={item.value}>
-                    {item.label}
+                  <SelectItem key={item._id} value={item.listItem}>
+                    {item.listItem}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -413,8 +455,8 @@ export default function EditOrganizationPage() {
 
               <SelectContent>
                 {orgTypes.map((item: any) => (
-                  <SelectItem key={item.value} value={item.value}>
-                    {item.label}
+                  <SelectItem key={item._id} value={item.listItem}>
+                    {item.listItem}
                   </SelectItem>
                 ))}
               </SelectContent>

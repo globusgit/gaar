@@ -5,19 +5,54 @@ import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { FormField } from "@/components/ui/form-field";
+import { FormSelect } from "@/components/ui/form-select";
 import PageHeader from "@/app/_components/PageHeader";
 import AmountToWords from "@/app/_components/AmountToWords";
 import { useSession } from "next-auth/react";
+
+type ListItem = {
+  _id: string;
+  listItem: string;
+};
+
+type FRForm = {
+  description: string;
+  amount: string;
+  state: string;
+  frType: string;
+  paymentType: string;
+  vertical: string;
+  subVertical: string;
+  paymentTo: string;
+  paymentToId: string;
+  paymentToType: string;
+  paymentPriority: string;
+  dueDate: string;
+  tenderNo: string;
+  tenderName: string;
+  tenderDescription: string;
+  woNo: string;
+  woTitle: string;
+  requestedBy: string;
+  requestedById: string | null;
+  orgId: string;
+};
+
+type SearchResult = {
+  _id: string;
+  [key: string]: string | number | boolean | null | undefined;
+};
 
 export default function CreateFR() {
   const router = useRouter();
   const { data: session } = useSession();
 
-  const orgId = session?.user?.orgId;
-  const employeeName = session?.user?.employeeName;
-  const phone = session?.user?.username;
+  const orgId = session?.user?.orgId || "";
+  const employeeName = session?.user?.employeeName || "";
+  const phone = session?.user?.username || "";
 
-  const [form, setForm] = useState<any>({
+  const [form, setForm] = useState<FRForm>({
     description: "",
     amount: "",
     state: "",
@@ -31,6 +66,7 @@ export default function CreateFR() {
     paymentPriority: "",
     dueDate: "",
     tenderNo: "",
+    tenderName: "",
     tenderDescription: "",
     woNo: "",
     woTitle: "",
@@ -39,7 +75,7 @@ export default function CreateFR() {
     orgId: "",
   });
 
-  const [lists, setLists] = useState<any>({
+  const [lists, setLists] = useState<Record<string, ListItem[]>>({
     vertical: [],
     priority: [],
     state: [],
@@ -47,32 +83,28 @@ export default function CreateFR() {
     frType: [],
   });
 
-  const [subVerticals, setSubVerticals] = useState<any[]>([]);
+  const [subVerticals, setSubVerticals] = useState<ListItem[]>([]);
 
-  // WORK ORDER SEARCH
-  const [woResults, setWoResults] = useState<any[]>([]);
-  const [woSearchType, setWoSearchType] = useState<"woNo" | "woTitle" | null>(
-    null,
-  );
+  const [woResults, setWoResults] = useState<SearchResult[]>([]);
+  const [woSearchType, setWoSearchType] = useState<"woNo" | "woTitle" | null>(null);
 
-  // TENDER SEARCH
-  const [tenderResults, setTenderResults] = useState<any[]>([]);
+  const [tenderResults, setTenderResults] = useState<SearchResult[]>([]);
 
-  // PAYMENT TO SEARCH
-  const [paymentToResults, setPaymentToResults] = useState<any[]>([]);
+  const [paymentToResults, setPaymentToResults] = useState<SearchResult[]>([]);
 
   const woNoRef = useRef<HTMLDivElement>(null);
   const woTitleRef = useRef<HTMLDivElement>(null);
   const paymentToRef = useRef<HTMLDivElement>(null);
   const tenderRef = useRef<HTMLDivElement>(null);
 
-  const normalizeList = (data: any) => {
-    if (!data) return [];
+  const normalizeList = (data: unknown): ListItem[] => {
+    if (!data || typeof data !== "object") return [];
     if (Array.isArray(data)) return data;
 
-    if (Array.isArray(data.data)) {
-      if (Array.isArray(data.data[0])) return data.data[0];
-      return data.data;
+    const obj = data as Record<string, unknown>;
+    if (Array.isArray(obj.data)) {
+      if (Array.isArray(obj.data[0])) return obj.data[0] as ListItem[];
+      return obj.data as ListItem[];
     }
 
     return [];
@@ -84,6 +116,11 @@ export default function CreateFR() {
       `/api/system-list?listName=${encodeURIComponent(name)}&orgId=${orgId}`,
     );
 
+    if (!res.ok) {
+      console.error("Failed to fetch list:", name, res.status);
+      return [];
+    }
+
     const data = await res.json();
 
     return normalizeList(data);
@@ -93,7 +130,7 @@ export default function CreateFR() {
     if (!orgId) return;
 
     const init = async () => {
-      let employee: any = null;
+      let employee: unknown = null;
 
       if (phone) {
         const res = await fetch(
@@ -119,11 +156,11 @@ export default function CreateFR() {
         frType: ft,
       });
 
-      setForm((f: any) => ({
+      setForm((f) => ({
         ...f,
         orgId,
-        requestedBy: employee?.data?.name || employeeName,
-        requestedById: employee?.data?._id || null,
+        requestedBy: (employee as { data?: { name?: string } } | null)?.data?.name || employeeName,
+        requestedById: (employee as { data?: { _id?: string } } | null)?.data?._id || null,
       }));
     };
 
@@ -132,10 +169,10 @@ export default function CreateFR() {
 
   // ---------------- SUB VERTICAL ----------------
   useEffect(() => {
-    if (!form.vertical) return setSubVerticals([]);
+    if (!form.vertical) return;
 
     fetchList(form.vertical, form.orgId).then(setSubVerticals);
-  }, [form.vertical]);
+  }, [form.vertical, form.orgId]);
 
   // ---------------- WORK ORDER SEARCH ----------------
   const searchWO = async (q: string, field: "woNo" | "woTitle") => {
@@ -155,13 +192,13 @@ export default function CreateFR() {
     setWoResults(data.data || []);
   };
 
-  const selectWO = (wo: any) => {
-    setForm((prev: any) => ({
+  const selectWO = (wo: SearchResult) => {
+    setForm((prev: FRForm) => ({
       ...prev,
-      woNo: wo.woNo || "",
-      woTitle: wo.woTitle || "",
-      tenderNo: wo.tenderNo || prev.tenderNo || "",
-      tenderName: wo.tenderName || prev.tenderName || "",
+      woNo: (wo.woNo as string) || "",
+      woTitle: (wo.woTitle as string) || "",
+      tenderNo: (wo.tenderNo as string) || prev.tenderNo || "",
+      tenderName: (wo.tenderName as string) || prev.tenderName || "",
     }));
 
     setWoResults([]);
@@ -183,12 +220,12 @@ export default function CreateFR() {
     setPaymentToResults(data.data || []);
   };
 
-  const selectPaymentTo = (item: any) => {
-    setForm((prev: any) => ({
+  const selectPaymentTo = (item: SearchResult) => {
+    setForm((prev: FRForm) => ({
       ...prev,
-      paymentTo: item.name,
-      paymentToId: item._id,
-      paymentToType: item.type,
+      paymentTo: item.name as string,
+      paymentToId: item._id as string,
+      paymentToType: item.type as string,
     }));
 
     setPaymentToResults([]);
@@ -207,7 +244,7 @@ export default function CreateFR() {
     setTenderResults(data.data || []);
   };
 
-  const selectTender = (tender: any) => {
+  const selectTender = (tender: SearchResult) => {
     const amountFieldMap: Record<string, string> = {
       EMD: "emdAmount",
       BG: "bgAmount",
@@ -216,7 +253,6 @@ export default function CreateFR() {
       "Corpus Fund": "corpusFund",
     };
 
-    // 🔹 Due date mapping
     const dueDateFieldMap: Record<string, string> = {
       EMD: "emdPaymentDate",
       BG: "bgPaymentDate",
@@ -228,14 +264,14 @@ export default function CreateFR() {
     const amountField = amountFieldMap[form.paymentType];
     const dueDateField = dueDateFieldMap[form.paymentType];
 
-    const autoAmount = amountField ? String(tender?.[amountField] || "") : "";
+    const autoAmount = amountField ? String((tender[amountField] as string) || "") : "";
 
-    const autoDueDate = dueDateField ? tender?.[dueDateField] || "" : "";
+    const autoDueDate = dueDateField ? (tender[dueDateField] as string) || "" : "";
 
-    setForm((prev: any) => ({
+    setForm((prev: FRForm) => ({
       ...prev,
-      tenderNo: tender.tenderNo || "",
-      tenderDescription: tender.description || "",
+      tenderNo: (tender.tenderNo as string) || "",
+      tenderDescription: (tender.description as string) || "",
       amount: autoAmount || prev.amount || "",
       dueDate: autoDueDate || prev.dueDate || "",
     }));
@@ -244,24 +280,26 @@ export default function CreateFR() {
   };
   // ---------------- CLOSE DROPDOWNS ----------------
   useEffect(() => {
-    const handleClickOutside = (event: any) => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+
       if (
         woNoRef.current &&
-        !woNoRef.current.contains(event.target) &&
+        !woNoRef.current.contains(target) &&
         woTitleRef.current &&
-        !woTitleRef.current.contains(event.target)
+        !woTitleRef.current.contains(target)
       ) {
         setWoResults([]);
       }
 
       if (
         paymentToRef.current &&
-        !paymentToRef.current.contains(event.target)
+        !paymentToRef.current.contains(target)
       ) {
         setPaymentToResults([]);
       }
 
-      if (tenderRef.current && !tenderRef.current.contains(event.target)) {
+      if (tenderRef.current && !tenderRef.current.contains(target)) {
         setTenderResults([]);
       }
     };
@@ -282,12 +320,24 @@ export default function CreateFR() {
       alert("Tender No and Tender Description are mandatory");
       return;
     }
-    await fetch("/api/fund-request", {
-      method: "POST",
-      body: JSON.stringify(form),
-    });
 
-    router.push("/fund-request");
+    try {
+      const res = await fetch("/api/fund-request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.message || "Failed to create fund request");
+      }
+
+      router.push("/fund-request");
+    } catch (err: any) {
+      console.error(err);
+      alert(err.message || "Something went wrong");
+    }
   };
 
   // ---------------- UI ----------------
@@ -298,66 +348,47 @@ export default function CreateFR() {
       <div className="grid grid-cols-2 gap-4 p-4">
         {/* DESCRIPTION */}
         <div className="col-span-2">
-          <label className="font-bold">Description</label>
-
-          <Textarea
-            value={form.description}
-            onChange={(e) =>
-              setForm({
-                ...form,
-                description: e.target.value,
-              })
-            }
-          />
+          <FormField label="Description" required>
+            <Textarea
+              value={form.description}
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  description: e.target.value,
+                })
+              }
+              className="min-h-[100px]"
+            />
+          </FormField>
         </div>
 
         {/* FR TYPE */}
-        <div>
-          <label className="font-bold">FR Type</label>
-
-          <select
-            className="border rounded-lg p-2 w-full"
-            value={form.frType}
-            onChange={(e) =>
-              setForm({
-                ...form,
-                frType: e.target.value,
-              })
-            }
-          >
-            <option value="">Select</option>
-
-            {lists.frType.map((f: any) => (
-              <option key={f._id} value={f.listItem}>
-                {f.listItem}
-              </option>
-            ))}
-          </select>
-        </div>
+        <FormSelect
+          label="FR Type"
+          value={form.frType}
+          onValueChange={(value) =>
+            setForm({
+              ...form,
+              frType: value,
+            })
+          }
+          options={lists.frType.map((f) => ({ value: f.listItem, label: f.listItem }))}
+          placeholder="Select"
+        />
 
         {/* PAYMENT TYPE */}
-        <div>
-          <label className="font-bold">Payment Type</label>
-
-          <select
-            className="border rounded-lg p-2 w-full"
-            value={form.paymentType}
-            onChange={(e) =>
-              setForm({
-                ...form,
-                paymentType: e.target.value,
-              })
-            }
-          >
-            <option value="">Select</option>
-
-            {lists.paymentType.map((p: any) => (
-              <option key={p._id} value={p.listItem}>
-                {p.listItem}
-              </option>
-            ))}
-          </select>
-        </div>
+        <FormSelect
+          label="Payment Type"
+          value={form.paymentType}
+          onValueChange={(value) =>
+            setForm({
+              ...form,
+              paymentType: value,
+            })
+          }
+          options={lists.paymentType.map((p) => ({ value: p.listItem, label: p.listItem }))}
+          placeholder="Select"
+        />
 
         {/* TENDER DETAILS */}
         {(form.paymentType === "EMD" ||
@@ -388,7 +419,7 @@ export default function CreateFR() {
 
               {tenderResults.length > 0 && (
                 <div className="absolute z-20 w-full bg-white border rounded-md shadow-md max-h-56 overflow-auto">
-                  {tenderResults.map((t: any) => (
+                  {tenderResults.map((t: SearchResult) => (
                     <div
                       key={t._id}
                       className="p-2 hover:bg-gray-100 cursor-pointer text-sm"
@@ -409,7 +440,12 @@ export default function CreateFR() {
                 Tender Description <span className="text-red-500">*</span>
               </label>
 
-              <Input required readOnly value={form.tenderDescription} />
+              <Input
+                required
+                readOnly
+                value={form.tenderDescription}
+                className="bg-gray-50"
+              />
             </div>
           </>
         )}
@@ -435,7 +471,7 @@ export default function CreateFR() {
 
               {woSearchType === "woNo" && woResults.length > 0 && (
                 <div className="absolute z-20 w-full bg-white border rounded-md shadow-md max-h-56 overflow-auto">
-                  {woResults.map((w: any) => (
+                  {woResults.map((w: SearchResult) => (
                     <div
                       key={w._id}
                       className="p-2 hover:bg-gray-100 cursor-pointer text-sm"
@@ -468,7 +504,7 @@ export default function CreateFR() {
 
               {woSearchType === "woTitle" && woResults.length > 0 && (
                 <div className="absolute z-20 w-full bg-white border rounded-md shadow-md max-h-56 overflow-auto">
-                  {woResults.map((w: any) => (
+                  {woResults.map((w: SearchResult) => (
                     <div
                       key={w._id}
                       className="p-2 hover:bg-gray-100 cursor-pointer text-sm"
@@ -485,9 +521,7 @@ export default function CreateFR() {
           </>
         )}
         {/* AMOUNT */}
-        <div>
-          <label className="font-bold">Request Amount</label>
-
+        <FormField label="Request Amount" required>
           <AmountToWords
             amount={form.amount}
             onChange={(val) =>
@@ -497,99 +531,70 @@ export default function CreateFR() {
               })
             }
           />
-        </div>
+        </FormField>
 
         {/* STATE */}
-        <div>
-          <label className="font-bold">State</label>
+        <FormSelect
+          label="State"
+          value={form.state}
+          onValueChange={(value) =>
+            setForm({
+              ...form,
+              state: value,
+            })
+          }
+          options={lists.state.map((s) => ({ value: s.listItem, label: s.listItem }))}
+          placeholder="Select"
+        />
 
-          <select
-            className="border rounded-lg p-2 w-full"
-            value={form.state}
-            onChange={(e) =>
-              setForm({
-                ...form,
-                state: e.target.value,
-              })
-            }
-          >
-            <option value="">Select</option>
-
-            {lists.state.map((s: any) => (
-              <option key={s._id} value={s.listItem}>
-                {s.listItem}
-              </option>
-            ))}
-          </select>
-        </div>
         {/* VERTICAL */}
-        <div>
-          <label className="font-bold">Vertical</label>
-
-          <select
-            className="border rounded-lg p-2 w-full"
-            value={form.vertical}
-            onChange={(e) =>
-              setForm({
-                ...form,
-                vertical: e.target.value,
-                subVertical: "",
-              })
-            }
-          >
-            <option value="">Select</option>
-
-            {lists.vertical.map((v: any) => (
-              <option key={v._id} value={v.listItem}>
-                {v.listItem}
-              </option>
-            ))}
-          </select>
-        </div>
+        <FormSelect
+          label="Vertical"
+          value={form.vertical}
+          onValueChange={(value) =>
+            setForm({
+              ...form,
+              vertical: value,
+              subVertical: "",
+            })
+          }
+          options={lists.vertical.map((v) => ({ value: v.listItem, label: v.listItem }))}
+          placeholder="Select"
+        />
 
         {/* SUB VERTICAL */}
-        <div>
-          <label className="font-bold">Sub Vertical</label>
-
-          <select
-            className="border rounded-lg p-2 w-full"
-            value={form.subVertical}
-            onChange={(e) =>
-              setForm({
-                ...form,
-                subVertical: e.target.value,
-              })
-            }
-          >
-            <option value="">Select</option>
-
-            {subVerticals.map((sv: any) => (
-              <option key={sv._id} value={sv.listItem}>
-                {sv.listItem}
-              </option>
-            ))}
-          </select>
-        </div>
+        <FormSelect
+          label="Sub Vertical"
+          value={form.subVertical}
+          onValueChange={(value) =>
+            setForm({
+              ...form,
+              subVertical: value,
+            })
+          }
+          options={subVerticals.map((sv) => ({ value: sv.listItem, label: sv.listItem }))}
+          placeholder="Select"
+        />
 
         {/* PAYMENT TO */}
         <div className="relative" ref={paymentToRef}>
-          <label className="font-bold">Payment To</label>
+          <FormField label="Payment To">
+            <Input
+              value={form.paymentTo}
+              onChange={(e) => {
+                setForm({
+                  ...form,
+                  paymentTo: e.target.value,
+                });
 
-          <Input
-            value={form.paymentTo}
-            onChange={(e) => {
-              setForm({
-                ...form,
-                paymentTo: e.target.value,
-              });
-
-              searchPaymentTo(e.target.value);
-            }}
-          />
+                searchPaymentTo(e.target.value);
+              }}
+            />
+          </FormField>
 
           {paymentToResults.length > 0 && (
             <div className="absolute z-20 w-full bg-white border rounded-md shadow-md max-h-56 overflow-auto">
-              {paymentToResults.map((item: any) => (
+              {paymentToResults.map((item) => (
                 <div
                   key={item._id}
                   className="p-2 hover:bg-gray-100 cursor-pointer"
@@ -605,33 +610,21 @@ export default function CreateFR() {
         </div>
 
         {/* PRIORITY */}
-        <div>
-          <label className="font-bold">Priority</label>
-
-          <select
-            className="border rounded-lg p-2 w-full"
-            value={form.paymentPriority}
-            onChange={(e) =>
-              setForm({
-                ...form,
-                paymentPriority: e.target.value,
-              })
-            }
-          >
-            <option value="">Select</option>
-
-            {lists.priority.map((p: any) => (
-              <option key={p._id} value={p.listItem}>
-                {p.listItem}
-              </option>
-            ))}
-          </select>
-        </div>
+        <FormSelect
+          label="Priority"
+          value={form.paymentPriority}
+          onValueChange={(value) =>
+            setForm({
+              ...form,
+              paymentPriority: value,
+            })
+          }
+          options={lists.priority.map((p) => ({ value: p.listItem, label: p.listItem }))}
+          placeholder="Select"
+        />
 
         {/* DUE DATE */}
-        <div>
-          <label className="font-bold">Due Date</label>
-
+        <FormField label="Due Date">
           <Input
             type="date"
             value={form.dueDate}
@@ -642,7 +635,7 @@ export default function CreateFR() {
               })
             }
           />
-        </div>
+        </FormField>
 
         {/* SUBMIT */}
         <div className="col-span-2 flex justify-end gap-4">

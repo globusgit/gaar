@@ -4,18 +4,18 @@ const EmployeeSchema = new mongoose.Schema(
     {
         name:{
             type: String,
-            require: true
+            required: true
         },
         empId:{
             type: String,
-            require: true
+            required: true
         },
         photo:{
             type: String,
         },
         phone:{
             type: String,
-            require: true
+            required: true
         },
         email:{
             type: String,
@@ -23,7 +23,7 @@ const EmployeeSchema = new mongoose.Schema(
         
         designation:{
             type: String,
-            require: true
+            required: true
         },
         isManager:{
            type: Boolean
@@ -40,11 +40,17 @@ const EmployeeSchema = new mongoose.Schema(
         },
         orgId:{
             type: String,
-            require: true
-        },        
+            required: true
+        },
+        modules: [{
+            type: String,
+        }]
 
     },
     {timestamps: true}
 )
+
+EmployeeSchema.index({ orgId: 1, empId: 1 });
+EmployeeSchema.index({ orgId: 1, name: 1 });
 
 export default mongoose.models.Employee || mongoose.model("Employee", EmployeeSchema)

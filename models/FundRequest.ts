@@ -4,18 +4,18 @@ const FundRequestSchema = new mongoose.Schema(
   {
     frNo: {
       type: String,
-      require: true,
+      required: true,
     },
     description: {
       type: String,
     },
     frType: {
       type: String,
-      require: true,
+      required: true,
     },
     paymentType: {
       type: String,
-      require: true,
+      required: true,
     },
     woNo: {
       type: String,
@@ -25,23 +25,23 @@ const FundRequestSchema = new mongoose.Schema(
     },
     amount: {
       type: Number,
-      require: true,
+      required: true,
     },
     vertical: {
       type: String,
-      require: true,
+      required: true,
     },
     subVertical: {
       type: String,
-      require: true,
+      required: true,
     },
     paymentTo: {
       type: String,
-      require: true,
+      required: true,
     },
     requestedBy: {
       type: String,
-      require: true,
+      required: true,
     },
     isApproved: {
       type: Boolean,
@@ -49,7 +49,7 @@ const FundRequestSchema = new mongoose.Schema(
     },
     approvedBy: {
       type: String,
-      require: true,
+      required: true,
     },
     approvalDate: {
       type: Date,
@@ -68,7 +68,7 @@ const FundRequestSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      require: true,
+      required: true,
     },
     requestedDate: {
       type: Date,
@@ -105,11 +105,15 @@ const FundRequestSchema = new mongoose.Schema(
     },
     orgId: {
       type: String,
-      require: true,
+      required: true,
     },
   },
   { timestamps: true },
 );
+
+FundRequestSchema.index({ orgId: 1, frNo: 1 });
+FundRequestSchema.index({ orgId: 1, status: 1 });
+FundRequestSchema.index({ orgId: 1, createdAt: -1 });
 
 export default mongoose.models.FundRequest ||
   mongoose.model("FundRequest", FundRequestSchema);

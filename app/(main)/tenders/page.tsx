@@ -83,6 +83,7 @@ export default function TenderListingPage() {
 
       setData(json.data || []);
       setTotalPages(json.totalPages || 1);
+      setTotalRecords(json.total || 0);
     } catch (error) {
       console.log("Fetch Tender Error:", error);
     } finally {
@@ -288,9 +289,9 @@ export default function TenderListingPage() {
       {/* Pagination */}
      
       <div className="flex flex-col md:flex-row items-center justify-between gap-4 mt-4">
-         <div className="text-sm text-muted-foreground">
-          Total Records: {totalRecords}
-         </div>
+          <div className="text-sm text-muted-foreground">
+            Total Records: {totalRecords}
+          </div>
         <div className="flex justify-end items-center gap-3">
           <Button
             variant="outline"

@@ -1,12 +1,16 @@
 import { NextResponse } from "next/server";
 import connectDB from "@/lib/mongoose";
 import WorkOrder from "@/models/WorkOrder";
+import { requireAuth, requireOrgScope, sanitizeRegex, sanitizeSortField } from "@/lib/apiGuard";
 
-export async function GET(req, res) {
+export async function GET(req) {
   try {
     await connectDB();
-    const { searchParams } = new URL(req.url);
-    const orgId = searchParams.get("orgId");
+
+    const token = await requireAuth(req);
+    if (token instanceof Response) return token;
+
+    const orgId = token.orgId;
     const totalWorkOrders = await WorkOrder.countDocuments({ orgId: orgId });
     const totalCompletedWorkOrders = await WorkOrder.countDocuments({
       orgId: orgId,
@@ -31,7 +35,6 @@ export async function GET(req, res) {
       { status: 200 },
     );
   } catch (error) {
-    console.error("Error fetching dashboard data:", error);
     return NextResponse.json(
       { error: "Internal Server Error" },
       { status: 500 },

@@ -1,40 +1,43 @@
 import mongoose from "mongoose";
 
-const ActivityInfoSchema = new mongoose.Schema(
+const ActivityLogSchema = new mongoose.Schema(
   {
     date: {
       type: Date,
-      require: true,
+      required: true,
     },
     activity: {
       type: String,
-      require: true,
+      required: true,
     },
     description: {
       type: String,
-      require: true,
+      required: true,
     },
     loggedBy: {
       type: String,
     },
     entity: {
       type: String,
-      require: true,
+      required: true,
     },
     entityId: {
       type: String,
-      require: true,
+      required: true,
     },
     username: {
       type: String,
     },
     orgId: {
       type: String,
-      require: true,
+      required: true,
     },
   },
   { timestamps: true },
 );
 
-export default mongoose.models.ActivityInfo ||
-  mongoose.model("ActivityInfo", ActivityInfoSchema);
+ActivityLogSchema.index({ orgId: 1, date: -1 });
+ActivityLogSchema.index({ entity: 1, entityId: 1 });
+
+export default mongoose.models.ActivityLog ||
+  mongoose.model("ActivityLog", ActivityLogSchema);

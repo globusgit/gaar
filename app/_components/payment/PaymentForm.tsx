@@ -74,7 +74,8 @@ export default function PaymentForm({ id }: { id?: string }) {
     );
 
     const data = await res.json();
-    return data?.data?.[0] || [];
+
+    return data?.data || [];
   };
 
   const searchUsers = async (query: string) => {
@@ -148,15 +149,26 @@ export default function PaymentForm({ id }: { id?: string }) {
     const method = id ? "PUT" : "POST";
     const url = id ? `/api/payment/${id}` : `/api/payment`;
 
-    await fetch(url, {
-      method,
-      body: JSON.stringify({
-        ...form,
-        orgId,
-      }),
-    });
+    try {
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...form,
+          orgId,
+        }),
+      });
 
-    router.push("/payments");
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.message || "Failed to save payment");
+      }
+
+      router.push("/payments");
+    } catch (err: any) {
+      console.error(err);
+      alert(err.message || "Something went wrong");
+    }
   };
   const closeTxnForm = () => {
     setShowTxnForm(false);

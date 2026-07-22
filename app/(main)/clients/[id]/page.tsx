@@ -2,26 +2,24 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 
-import { Input } from "@/components/ui/input";
+import PageHeader from "@/app/_components/PageHeader";
+
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { FormField } from "@/components/ui/form-field";
+import { FormSelect } from "@/components/ui/form-select";
 
 export default function EditClientPage() {
   const params = useParams();
   const router = useRouter();
+  const { data: session } = useSession();
 
   const clientId = params?.id as string;
 
   const [loading, setLoading] = useState(false);
-  const [states, setStates] = useState<any[]>([]);
+  const [states, setStates] = useState<{ value: string; label: string }[]>([]);
 
   const [formData, setFormData] = useState({
     client: "",
@@ -33,80 +31,60 @@ export default function EditClientPage() {
     state: "",
   });
 
+  // Fetch states
+  useEffect(() => {
+    const fetchStates = async () => {
+      const res = await fetch(
+        `/api/system-list?listName=State&orgId=${session?.user?.orgId || ""}`,
+      );
+
+      if (!res.ok) {
+        console.error("Failed to fetch states:", res.status);
+        setStates([]);
+        return;
+      }
+
+      const data = await res.json();
+
+      const normalized = Array.isArray(data?.data)
+        ? Array.isArray(data.data[0])
+          ? data.data[0]
+          : data.data
+        : [];
+
+      setStates(
+        normalized.map((item: any) => ({
+          value: item.listItem,
+          label: item.listItem,
+        })),
+      );
+    };
+
+    fetchStates();
+  }, [session?.user?.orgId]);
+
   // Fetch client data
   useEffect(() => {
     if (clientId) {
       fetchClient();
     }
-
-    fetchStates();
   }, [clientId]);
 
   const fetchClient = async () => {
     try {
       const res = await fetch(`/api/client/${clientId}`);
-
-      if (!res.ok) {
-        throw new Error("Failed to fetch client");
-      }
-
       const data = await res.json();
-
-      setFormData({
-        client: data.client || "",
-        clientId: data.clientId || "",
-        website: data.website || "",
-        emailId: data.emailId || "",
-        phone: data.phone || "",
-        gstNo: data.gstNo || "",
-        state: data.state || "",
-      });
+      setFormData(data);
     } catch (error) {
       console.error(error);
     }
   };
 
-  // Fetch states dropdown list
-  const fetchStates = async () => {
-    const stateListName = "State";
-    try {
-      const res = await fetch(
-        `/api/system-list?listName=${stateListName}&orgId=${"ORG1"}`,
-      );
-
-      if (!res.ok) {
-        throw new Error("Failed to fetch states");
-      }
-
-      const data = await res.json();
-
-      const normalized = Array.isArray(data?.data) // newly added to resolve the issue (from here to)
-      ? Array.isArray(data.data[0])
-        ? data.data[0]
-        : data.data
-      : [];// newly added to resolve the issue (until here)
-
-      setStates(normalized);
-    } catch (error) {
-      console.error(error);
-    }
-  };
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-  };
-
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setLoading(true);
 
     try {
-      setLoading(true);
-
       const res = await fetch(`/api/client/${clientId}`, {
         method: "PUT",
         headers: {
@@ -123,6 +101,7 @@ export default function EditClientPage() {
       router.refresh();
     } catch (error) {
       console.error(error);
+      alert("Failed to update client");
     } finally {
       setLoading(false);
     }
@@ -130,137 +109,101 @@ export default function EditClientPage() {
 
   return (
     <div className="space-y-4 px-0 md:px-4 lg:px-8">
-      <div>
-      <div className="rounded-md bg-linear-to-r from-cyan-700 to-cyan-900  text-white shadow-sm text-center">
-        <h1 className="text-xl font-semibold mb-6">Edit Client</h1>
-      </div>
-      <div className="p-4 space-y-6">
-        <form onSubmit={handleSubmit} className="space-y-5">
-          {/* Client Name */}
-          <div className="space-y-2">
-            
-            <Label>Client Name</Label>
+      <PageHeader title="Edit Client" />
 
-            <Input
-              name="client"
-              value={formData.client}
-              onChange={handleChange}
-              placeholder="Enter Client Name"
-              required
-            />
-          </div>
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <div className="bg-white rounded-xl shadow-lg border p-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <FormField label="Client Name" required>
+              <Input
+                value={formData.client}
+                onChange={(e) =>
+                  setFormData({ ...formData, client: e.target.value })
+                }
+                placeholder="Enter client name"
+              />
+            </FormField>
 
-          {/* Client ID - Read Only */}
-          <div className="space-y-2">
-            <Label>Client ID</Label>
+            <FormField label="Client ID">
+              <Input
+                value={formData.clientId}
+                onChange={(e) =>
+                  setFormData({ ...formData, clientId: e.target.value })
+                }
+                placeholder="Auto-generated"
+                disabled
+              />
+            </FormField>
 
-            <Input
-              name="clientId"
-              value={formData.clientId}
-              readOnly
-              disabled
-            />
-          </div>
-
-          {/* Website */}
-          <div className="space-y-2">
-            <Label>Website</Label>
-
-            <Input
-              name="website"
-              value={formData.website}
-              onChange={handleChange}
-              placeholder="Enter Website"
-            />
-          </div>
-
-          {/* Email */}
-          <div className="space-y-2">
-            <Label>Email</Label>
-
-            <Input
-              type="email"
-              name="emailId"
-              value={formData.emailId}
-              onChange={handleChange}
-              placeholder="Enter Email"
-            />
-          </div>
-
-          {/* Phone */}
-          <div className="space-y-2">
-            <Label>Phone</Label>
-
-            <Input
-              name="phone"
-              value={formData.phone}
-              onChange={handleChange}
-              placeholder="Enter Phone Number"
-            />
-          </div>
-
-          {/* GST */}
-          <div className="space-y-2">
-            <Label>GST No</Label>
-
-            <Input
-              name="gstNo"
-              value={formData.gstNo}
-              onChange={handleChange}
-              placeholder="Enter GST Number"
-            />
-          </div>
-
-          {/* State Dropdown */}
-          <div className="space-y-2">
-            <Label>State</Label>
-
-            <Select
+            <FormSelect
+              label="State"
               value={formData.state}
               onValueChange={(value) =>
-                setFormData((prev) => ({
-                  ...prev,
-                  state: value,
-                }))
+                setFormData({ ...formData, state: value })
               }
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select State" />
-              </SelectTrigger>
+              options={states}
+              placeholder="Select state"
+            />
 
-              <SelectContent>
-                {states.map((item: any) => (
-                  <SelectItem key={item._id} value={item.listItem}>
-                    {item.listItem}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <FormField label="Phone">
+              <Input
+                value={formData.phone}
+                onChange={(e) =>
+                  setFormData({ ...formData, phone: e.target.value })
+                }
+                placeholder="Enter phone number"
+                type="tel"
+              />
+            </FormField>
+
+            <FormField label="Email">
+              <Input
+                value={formData.emailId}
+                onChange={(e) =>
+                  setFormData({ ...formData, emailId: e.target.value })
+                }
+                placeholder="Enter email address"
+                type="email"
+              />
+            </FormField>
+
+            <FormField label="Website">
+              <Input
+                value={formData.website}
+                onChange={(e) =>
+                  setFormData({ ...formData, website: e.target.value })
+                }
+                placeholder="https://example.com"
+                type="url"
+              />
+            </FormField>
+
+            <FormField label="GST Number" className="md:col-span-2">
+              <Input
+                value={formData.gstNo}
+                onChange={(e) =>
+                  setFormData({ ...formData, gstNo: e.target.value })
+                }
+                placeholder="Enter GST number"
+              />
+            </FormField>
           </div>
-
-          {/* Buttons */}
-          <div className="flex gap-3 pt-4">
-            <Button
-                  className="bg-cyan-900 hover:bg-cyan-700"
-                                   
-                >
-                  {loading ? "Updating..." : "Update Client"}
-                </Button>
-              
-            
-
-            <Button
-              type="button"
-              variant="outline"
-              className="bg-orange-700 hover:bg-orange-500 text-white"
-              onClick={() => router.back()}
-            >
-              Cancel
-            </Button>
-          </div>
-        </form>
         </div>
-      </div>
+
+        <div className="flex justify-end gap-4">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => router.push("/clients")}
+            className="bg-orange-700 hover:bg-orange-500 text-white"
+          >
+            Cancel
+          </Button>
+          <Button type="submit" disabled={loading} className="bg-cyan-900 hover:bg-cyan-700">
+            {loading ? "Updating..." : "Update Client"}
+          </Button>
+        </div>
+      </form>
     </div>
   );
 }

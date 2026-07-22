@@ -1,19 +1,25 @@
+import { connectDB } from "@/lib/mongoose";
+import FundRequest from "@/models/FundRequest";
 import * as XLSX from "xlsx";
+import { requireAuth, sanitizeRegex } from "@/lib/apiGuard";
 
 export async function GET(req) {
   await connectDB();
 
+  const token = await requireAuth(req);
+  if (token instanceof Response) return token;
+
   const { searchParams } = new URL(req.url);
 
-  const orgId = searchParams.get("orgId");
   const search = searchParams.get("search") || "";
 
-  let filter = { orgId };
+  let filter = { orgId: token.orgId };
 
   if (search) {
+    const escapedSearch = sanitizeRegex(search);
     filter.$or = [
-      { frNo: { $regex: search, $options: "i" } },
-      { description: { $regex: search, $options: "i" } },
+      { frNo: { $regex: escapedSearch, $options: "i" } },
+      { description: { $regex: escapedSearch, $options: "i" } },
     ];
   }
 

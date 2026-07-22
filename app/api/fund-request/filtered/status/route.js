@@ -1,17 +1,21 @@
 import { NextResponse } from "next/server";
 import connectDB from "@/lib/mongoose";
 import FundRequest from "@/models/FundRequest";
+import { requireAuth } from "@/lib/apiGuard";
 
 export async function GET(req, res) {
   try {
     await connectDB();
+
+    const token = await requireAuth(req);
+    if (token instanceof Response) return token;
+
     const { searchParams } = new URL(req.url);
-    const orgId = searchParams.get("orgId");
     const status = searchParams.get("status");
     const page = parseInt(searchParams.get("page")) || 1;
     const limit = parseInt(searchParams.get("limit")) || 20;
     const skip = (page - 1) * limit;
-    const filter = { orgId: orgId };
+    const filter = { orgId: token.orgId };
     if (status) {
       filter.status = status;
     }

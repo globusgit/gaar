@@ -1,11 +1,10 @@
 import mongoose from "mongoose";
-import { unique } from "next/dist/build/utils";
 
 const WorkOrderSchema = new mongoose.Schema(
   {
     woNo: {
       type: String,
-      require: true,
+      required: true,
       unique: true,
     },
     woTitle: {
@@ -55,7 +54,7 @@ const WorkOrderSchema = new mongoose.Schema(
     },
     woValue: {
       type: Number,
-      require: true,
+      required: true,
     },
     country: {
       type: String,
@@ -68,11 +67,15 @@ const WorkOrderSchema = new mongoose.Schema(
     },
     orgId: {
       type: String,
-      require: true,
+      required: true,
     },
   },
   { timestamps: true },
 );
+
+WorkOrderSchema.index({ orgId: 1, woNo: 1 });
+WorkOrderSchema.index({ orgId: 1, status: 1 });
+WorkOrderSchema.index({ orgId: 1, createdAt: -1 });
 
 export default mongoose.models.WorkOrder ||
   mongoose.model("WorkOrder", WorkOrderSchema);

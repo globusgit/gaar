@@ -6,27 +6,34 @@ import ReceivableInfo from "@/models/ReceivableInfo";
 import TenderInfo from "@/models/TenderInfo";
 import WorkOrder from "@/models/WorkOrder";
 import FundRequest from "@/models/FundRequest";
+import { requireAuth } from "@/lib/apiGuard";
+
+const SAFE_TRANSACTION_FIELDS = [
+  "entityType","entityId","amount","txnDate","txnType","paidTo","txnNote",
+];
 
 export async function POST(req) {
+  const token = await requireAuth(req);
+  if (token instanceof Response) return token;
+
   const body = await req.json();
-  console.log("After passing data to constants");
 
   try {
     await connectDB();
-    //console.log("After connecting to db");
-    //const clientNameWithNoSpaces = client.replace(/\s/g,'');
-    const orgId = body.orgId;
-    const createdTxn = await TransactionInfo.create(body);
-    console.log(createdTxn);
+
+    const data = {};
+    for (const f of SAFE_TRANSACTION_FIELDS) {
+      if (body[f] !== undefined) data[f] = body[f];
+    }
+    data.orgId = token.orgId;
+
+    const createdTxn = await TransactionInfo.create(data);
     if (createdTxn) {
       if (body.entityType === "PAYMENT") {
-        console.log("Body Amount: ", body.amount);
         const paymentData = await PaymentInfo.findById(body.entityId);
         const balanceAmount =
           Number(paymentData.balanceAmount) - Number(body.amount);
-        // const paidAmount = Number(paymentData.paidAmount || 0) + body.amount;
 
-        console.log("Balance Amount after Update: ", balanceAmount);
         let paymentStatus = "Partially Paid";
         if (Number(balanceAmount) <= 0) {
           paymentStatus = "Paid";
@@ -47,22 +54,18 @@ export async function POST(req) {
         );
 
         if (up) {
-          /** Update Fund Request status so that it reflects the payment status */
-          console.log("Payment Status: ", paymentStatus);
-          console.log("OrgId: ", orgId);
           const updatedFundRequest = await FundRequest.findOneAndUpdate(
             {
               frNo: up.requestNo,
-              orgId: orgId,
+              orgId: token.orgId,
             },
             {
               status: paymentStatus,
             },
             { returnDocument: "after" },
           );
-          console.log("Updated Fund Request: ", updatedFundRequest);
         }
-        /** Update Tender if payment is made against any Tender Payments */
+
         if (
           up.paymentType === "BG" ||
           up.paymentType === "EMD" ||
@@ -70,15 +73,11 @@ export async function POST(req) {
           up.paymentType === "Corpus Fund" ||
           up.paymentType === "Document Fee"
         ) {
-          console.log(
-            "Updating tender information for payment type: ",
-            up.paymentType,
-          );
           if (up.paymentType === "BG") {
             await TenderInfo.findOneAndUpdate(
               {
                 tenderNo: up.tenderNo,
-                orgId: orgId,
+                orgId: token.orgId,
               },
               {
                 bgPaymentDate: createdTxn.txnDate,
@@ -90,7 +89,7 @@ export async function POST(req) {
             await TenderInfo.findOneAndUpdate(
               {
                 tenderNo: up.tenderNo,
-                orgId: orgId,
+                orgId: token.orgId,
               },
               {
                 emdPaymentDate: createdTxn.txnDate,
@@ -102,7 +101,7 @@ export async function POST(req) {
             await TenderInfo.findOneAndUpdate(
               {
                 tenderNo: up.tenderNo,
-                orgId: orgId,
+                orgId: token.orgId,
               },
               {
                 transactionFeePaymentDate: createdTxn.txnDate,
@@ -114,7 +113,7 @@ export async function POST(req) {
             await TenderInfo.findOneAndUpdate(
               {
                 tenderNo: up.tenderNo,
-                orgId: orgId,
+                orgId: token.orgId,
               },
               {
                 corpusFundPaymentDate: createdTxn.txnDate,
@@ -126,7 +125,7 @@ export async function POST(req) {
             await TenderInfo.findOneAndUpdate(
               {
                 tenderNo: up.tenderNo,
-                orgId: orgId,
+                orgId: token.orgId,
               },
               {
                 documentFeePaymentDate: createdTxn.txnDate,
@@ -136,13 +135,8 @@ export async function POST(req) {
           }
         }
 
-        console.log("Updated Payment: ", up);
         if (up.paymentType === "BG" || up.paymentType === "EMD") {
-          console.log("Balance Amount: ", up.balanceAmount);
-          console.log("Payment Type: ", up.paymentType);
           if (Number(up.balanceAmount) === 0) {
-            console.log("Creating receivable entry for BG/EMD payment...");
-
             await ReceivableInfo.create({
               type: up.paymentType,
               woNo: up.woNo,
@@ -164,7 +158,6 @@ export async function POST(req) {
               state: up.state,
               orgId: up.orgId,
             });
-            console.log("Receivable entry created successfully!");
           }
         }
       } else if (body.entityType === "RECEIVABLE") {
@@ -178,13 +171,9 @@ export async function POST(req) {
 
         let receivableStatus = "Pending";
 
-        // Fully received
         if (Number(balanceReceivableAmount) <= 0) {
           receivableStatus = "Received";
-        }
-
-        // Partially received
-        else if (
+        } else if (
           Number(balanceReceivableAmount) > 0 &&
           Number(receivedAmount) > 0
         ) {
@@ -205,27 +194,19 @@ export async function POST(req) {
           },
           { returnDocument: "after" },
         );
-        /** If BG or EMD is Received fully update TenderInfo emdRefundStatus as Received or
-         * bgRefundStatus as Received based on type
-         * and WorkOrderInfo's bgReceivedStatus as Received
-         *
-         */
-        console.log("Updated Receivable: ", updatedReceivable);
+
         if (
           updatedReceivable.type === "BG" ||
           updatedReceivable.type === "EMD"
         ) {
-          console.log("Inside if receivable type is BG or EMD");
           if (
             updatedReceivable.type === "BG" &&
             receivableStatus === "Received"
           ) {
-            console.log("updatedReceivable type: ", updatedReceivable.type);
-            /** Find the corresponding work order and update bgRefundStatus and bgRefundDate */
             await TenderInfo.findOneAndUpdate(
               {
                 tenderNo: updatedReceivable.tenderNo,
-                orgId: orgId,
+                orgId: token.orgId,
               },
               {
                 $set: {
@@ -236,7 +217,7 @@ export async function POST(req) {
               { returnDocument: "after" },
             );
             await WorkOrder.findOneAndUpdate(
-              { woNo: updatedReceivable.woNo, orgId: orgId },
+              { woNo: updatedReceivable.woNo, orgId: token.orgId },
               { bgReceivedStatus: "Refunded" },
               { returnDocument: "after" },
             );
@@ -246,7 +227,7 @@ export async function POST(req) {
             receivableStatus === "Received"
           ) {
             await TenderInfo.findOneAndUpdate(
-              { tenderNo: updatedReceivable.tenderNo, orgId: orgId },
+              { tenderNo: updatedReceivable.tenderNo, orgId: token.orgId },
               {
                 $set: {
                   emdRefundStatus: "Refunded",
@@ -257,17 +238,13 @@ export async function POST(req) {
             );
           }
         }
-        console.log(
-          "Receivable transaction created successfully!",
-          updatedReceivable,
-        );
       }
     }
     return NextResponse.json({ message: "Success!" }, { status: 200 });
   } catch (err) {
     return NextResponse.json(
       { message: "Something went wrong!" },
-      { status: 500 },
+      { status: 500 }
     );
   }
 }
@@ -275,17 +252,17 @@ export async function POST(req) {
 export async function GET(req) {
   try {
     await connectDB();
+
+    const token = await requireAuth(req);
+    if (token instanceof Response) return token;
+
     const { searchParams } = new URL(req.url);
-    const orgId = searchParams.get("orgId");
     const entityType = searchParams.get("entityType");
     const entityId = searchParams.get("entityId");
 
-    console.log("Org Id: " + orgId);
-
     const [txns, total] = await Promise.all([
-      TransactionInfo.find({ entityId }),
+      TransactionInfo.find({ orgId: token.orgId, entityId }),
     ]);
-    console.log("Transactions: ", txns);
     return NextResponse.json(
       {
         data: txns,
@@ -295,17 +272,16 @@ export async function GET(req) {
   } catch (err) {
     return NextResponse.json(
       { message: "Something went wrong!" },
-      { status: 500 },
+      { status: 500 }
     );
   }
 }
 
-/**
- * Method to Update a client
- * @returns M
- */
 export async function PATCH(req) {
-  const { client, website, emailId, phone, gstNo, orgId } = await req.json();
+  const token = await requireAuth(req);
+  if (token instanceof Response) return token;
+
+  const { client, website, emailId, phone, gstNo } = await req.json();
   try {
     return NextResponse.json(
       { message: "Successfully saved Client!" },
@@ -314,7 +290,7 @@ export async function PATCH(req) {
   } catch (err) {
     return NextResponse.json(
       { message: "Something went wrong!" },
-      { status: 500 },
+      { status: 500 }
     );
   }
 }

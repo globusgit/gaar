@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import PageHeader from "@/app/_components/PageHeader";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,14 +27,31 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 import { Separator } from "@/components/ui/separator";
 
-import { Search } from "lucide-react";
+type SystemListItem = {
+  _id: string;
+  listItem: string;
+};
+
+type EmployeeForm = {
+  _id: string;
+  name: string;
+  empId: string;
+  phone: string;
+  email: string;
+  designation: string;
+  managerName: string;
+  isManager: boolean;
+  orgId: string;
+  photo: string;
+  status: string;
+};
 
 export default function CreateEmployee() {
   const router = useRouter();
-
+  const { data: session } = useSession();
   const params = useParams();
 
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<EmployeeForm>({
     _id: "",
     name: "",
     empId: "",
@@ -46,61 +64,100 @@ export default function CreateEmployee() {
     photo: "",
     status: "",
   });
+
   const [photo, setPhoto] = useState<File | null>(null);
-  const [designations, setDesignations] = useState<string[]>([]);
+  const [designations, setDesignations] = useState<SystemListItem[]>([]);
   const [managerSearch, setManagerSearch] = useState("");
-  const [managerList, setManagerList] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  const employeeId = params?.id as string;
 
   useEffect(() => {
     const loadEmployee = async () => {
-      const res = await fetch(`/api/employee/${params.id}`);
-      const data = await res.json();
-      console.log("Employee Data: ", data);
+      if (!employeeId) return;
+
+      const res = await fetch(`/api/employee/${employeeId}`);
+      const data = (await res.json()) as EmployeeForm;
 
       setForm(data);
       setManagerSearch(data.managerName || "");
     };
+
     loadEmployee();
-  }, []);
-  
+  }, [employeeId]);
+
   useEffect(() => {
     const fetchDesignation = async () => {
-      const orgId = localStorage.getItem("orgId");
+      const orgId = session?.user?.orgId;
+      if (!orgId) return;
 
       const res = await fetch(
         `/api/system-list?listName=Designation&orgId=${orgId}`,
       );
+
+      if (!res.ok) {
+        console.error("Failed to fetch designations:", res.status);
+        setDesignations([]);
+        return;
+      }
+
       const data = await res.json();
-      setDesignations(Array.isArray(data?.data?.[0]) ? data.data[0] : []);
+
+      const normalized = Array.isArray(data?.data)
+        ? Array.isArray(data.data[0])
+          ? (data.data[0] as SystemListItem[])
+          : (data.data as SystemListItem[])
+        : [];
+
+      setDesignations(normalized);
     };
 
     fetchDesignation();
-  }, []);
+  }, [session?.user?.orgId]);
 
   const searchManager = async (val: string) => {
     setManagerSearch(val);
 
     const res = await fetch(`/api/user/search?search=${val}`);
-    const data = await res.json();
-    setManagerList(data);
+    await res.json();
   };
 
   const handleSubmit = async () => {
-    const orgId = localStorage.getItem("orgId");
+    const orgId = session?.user?.orgId;
+    if (!orgId) return;
 
-    const formData = new FormData();
+    setLoading(true);
 
-    //Object.keys(form).forEach((key) =>formData.append(key, form[key]));
+    const formDataToSend = new FormData();
 
-    formData.append("orgId", orgId || "");
-    if (photo) formData.append("photo", photo);
+    formDataToSend.append("name", form.name);
+    formDataToSend.append("employeeId", form.empId);
+    formDataToSend.append("phone", form.phone);
+    formDataToSend.append("email", form.email);
+    formDataToSend.append("designation", form.designation);
+    formDataToSend.append("isManager", String(form.isManager));
+    formDataToSend.append("managerName", form.managerName);
+    formDataToSend.append("orgId", orgId);
+    if (photo) formDataToSend.append("photo", photo);
 
-    await fetch("/api/employee", {
-      method: "PUT",
-      body: formData,
-    })
+    try {
+      const res = await fetch(`/api/employee/${employeeId}`, {
+        method: "PUT",
+        body: formDataToSend,
+      });
 
-    router.push("/employees");
+      if (!res.ok) {
+        throw new Error("Failed to update employee");
+      }
+
+      router.push("/employees");
+      router.refresh();
+    } catch (error) {
+      console.error(error);
+      alert("Failed to update employee");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -118,7 +175,13 @@ export default function CreateEmployee() {
             {/* Photo */}
             <div className="flex items-center gap-6">
               <Avatar className="h-28 w-28">
-                <AvatarImage src={`/api/files/employees/${form.photo}`} />
+                <AvatarImage 
+                  src={
+                    form.photo && form.photo !== "default-avatar.jpg" 
+                      ? `/api/files/employees/${form.photo}` 
+                      : "/default-avatar.jpg"
+                  } 
+                />
                 <AvatarFallback>{form.name?.charAt(0)}</AvatarFallback>
               </Avatar>
 
@@ -165,7 +228,7 @@ export default function CreateEmployee() {
                   </SelectTrigger>
 
                   <SelectContent>
-                    {designations.map((d: any) => (
+                    {designations.map((d) => (
                       <SelectItem key={d._id} value={d.listItem}>
                         {d.listItem}
                       </SelectItem>
@@ -238,8 +301,8 @@ export default function CreateEmployee() {
                 Cancel
               </Button>
 
-              <Button onClick={handleSubmit} className="bg-cyan-900 hover:bg-cyan-700">
-                Save Employee
+              <Button onClick={handleSubmit} disabled={loading} className="bg-cyan-900 hover:bg-cyan-700">
+                {loading ? "Saving..." : "Save Employee"}
               </Button>
             </div>
           </CardContent>

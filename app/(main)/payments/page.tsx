@@ -2,25 +2,33 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import {
-  Table,
-  TableHeader,
-  TableRow,
-  TableHead,
-  TableBody,
-  TableCell,
-} from "@/components/ui/table";
-import { Pencil, Check, X, ArrowUpDown, FileSpreadsheet } from "lucide-react";
-import PageHeader from "@/app/_components/PageHeader";
 import { useSession } from "next-auth/react";
+
+import { Button } from "@/components/ui/button";
+
+import DataTable, { ColumnDef } from "@/app/_components/DataTable";
+import { Check, X, Pencil } from "lucide-react";
+
+interface PaymentRow {
+  _id: string;
+  requestNo: string;
+  description: string;
+  requestAmount: number;
+  dueDate: string;
+  priority: string;
+  vertical: string;
+  state: string;
+  status: string;
+  isApproved: boolean;
+  isAuthorized: boolean;
+  requestedBy: string;
+}
 
 export default function PaymentList() {
   const { data: session } = useSession();
   const router = useRouter();
 
-  const [data, setData] = useState<any[]>([]);
+  const [data, setData] = useState<PaymentRow[]>([]);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
@@ -30,7 +38,6 @@ export default function PaymentList() {
   const [sortField, setSortField] = useState("createdAt");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
-  // Fetch data
   const fetchData = async () => {
     try {
       const orgId = session?.user?.orgId;
@@ -45,13 +52,13 @@ export default function PaymentList() {
       const json = await res.json();
       setData(json.data || []);
       setTotal(json.total || 0);
+      setTotalRecords(json.total || 0);
     } catch (err) {
       console.error(err);
       setData([]);
     }
   };
 
-  // Debounced + initial fetch
   useEffect(() => {
     const delay = setTimeout(() => {
       if (search.length === 0 || search.length >= 3) {
@@ -62,7 +69,6 @@ export default function PaymentList() {
     return () => clearTimeout(delay);
   }, [search, page, limit, sortField, sortOrder]);
 
-  // Sorting
   const handleSort = (field: string) => {
     if (sortField === field) {
       setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"));
@@ -73,7 +79,6 @@ export default function PaymentList() {
     setPage(1);
   };
 
-  // Excel Export
   const exportExcel = async () => {
     try {
       const orgId = session?.user?.orgId;
@@ -91,176 +96,115 @@ export default function PaymentList() {
       a.download = "payments.xlsx";
       a.click();
 
-      window.URL.revokeObjectURL(url); // cleanup
+      window.URL.revokeObjectURL(url);
     } catch (err) {
       console.error("Export failed", err);
     }
   };
 
+  const totalPages = Math.ceil(total / limit) || 1;
+
+  const columns: ColumnDef<PaymentRow>[] = [
+    {
+      key: "requestNo",
+      label: "Request No",
+      sortable: true,
+    },
+    {
+      key: "description",
+      label: "Description",
+      sortable: true,
+    },
+    {
+      key: "requestAmount",
+      label: "Amount",
+      sortable: true,
+      render: (value) =>
+        `₹ ${Number(value || 0).toLocaleString("en-IN")}`,
+    },
+    {
+      key: "dueDate",
+      label: "Due Date",
+      render: (value) =>
+        value ? new Date(value as string).toLocaleDateString("en-IN") : "-",
+    },
+    {
+      key: "priority",
+      label: "Priority",
+      render: (value) => value || "-",
+    },
+    {
+      key: "vertical",
+      label: "Vertical",
+      render: (value) => value || "-",
+    },
+    {
+      key: "state",
+      label: "State",
+      render: (value) => value || "-",
+    },
+    {
+      key: "status",
+      label: "Status",
+    },
+    {
+      key: "isApproved",
+      label: "Approved",
+      render: (value) =>
+        value ? (
+          <Check className="text-green-600" />
+        ) : (
+          <X className="text-red-600" />
+        ),
+    },
+    {
+      key: "isAuthorized",
+      label: "Authorized",
+      render: (value) =>
+        value ? (
+          <Check className="text-green-600" />
+        ) : (
+          <X className="text-red-600" />
+        ),
+    },
+    {
+      key: "requestedBy",
+      label: "Requested By",
+    },
+  ];
+
   return (
-    <div className="space-y-4 px-0 md:px-4 lg:px-8">
-      {/* Header */}
-      <PageHeader title="Payments" />
-
-      <div className="flex justify-between items-center flex-wrap gap-4">
-        {/* Search */}
-        <Input
-          placeholder="Search (min 3 chars)..."
-          value={search}
-          onChange={(e) => {
-            setSearch(e.target.value);
-            setPage(1);
-          }}
-          className="max-w-sm"
-        />
-
-        <div className="flex gap-2 items-center">
-          {/* Limit */}
-          <select
-            className="border rounded px-2 py-1 h-7 w-15"
-            value={limit}
-            onChange={(e) => {
-              setLimit(Number(e.target.value));
-              setPage(1);
-            }}
-          >
-            <option value={5}>5</option>
-            <option value={10}>10</option>
-            <option value={20}>20</option>
-          </select>
-
-          {/* Buttons */}
-          <Button
-            onClick={exportExcel}
-            variant="ghost"
-            size="icon"
-            title="Export to Excel"
-          >
-            <FileSpreadsheet className="h-5 w-5 text-green-700" />
-          </Button>
-        </div>
-      </div>
-
-      {/* Table */}
-      <div className="border rounded-xl overflow-auto max-h-[70vh]">
-        <Table>
-          <TableHeader className="sticky top-0 bg-cyan-200 z-20 shadow-sm">
-            <TableRow>
-              <TableHead className="font-bold w-16">Edit</TableHead>
-              <TableHead
-                onClick={() => handleSort("requestNo")}
-                className="cursor-pointer font-bold"
-              >
-                Request No <ArrowUpDown size={14} />
-              </TableHead>
-              <TableHead
-                onClick={() => handleSort("description")}
-                className="cursor-pointer font-bold"
-              >
-                Description <ArrowUpDown size={14} />
-              </TableHead>
-              <TableHead
-                onClick={() => handleSort("requestAmount")}
-                className="cursor-pointer font-bold"
-              >
-                Amount <ArrowUpDown size={14} />
-              </TableHead>
-              <TableHead className="font-bold">Due Date</TableHead>
-              <TableHead className="font-bold">Priority</TableHead>
-              <TableHead className="font-bold">Vertical</TableHead>
-              <TableHead className="font-bold">State</TableHead>
-              <TableHead className="font-bold">Status</TableHead>
-              <TableHead className="font-bold">Approved</TableHead>
-              <TableHead className="font-bold">Authorized</TableHead>
-              <TableHead className="font-bold">Requested By</TableHead>
-            </TableRow>
-          </TableHeader>
-
-          <TableBody>
-            {data.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={11} className="text-center py-6">
-                  No records found
-                </TableCell>
-              </TableRow>
-            ) : (
-              data.map((item) => (
-                <TableRow key={item._id} className="hover:bg-muted/50">
-                  <TableCell>
-                    <Pencil
-                      size={16}
-                      className="text-orange-500 cursor-pointer hover:text-orange-700"
-                      onClick={() => router.push(`/payments/edit/${item._id}`)}
-                    />
-                  </TableCell>
-                  <TableCell>{item.requestNo}</TableCell>
-                  <TableCell>{item.description}</TableCell>
-                  <TableCell>
-                    ₹ {item.requestAmount?.toLocaleString("en-IN")}
-                  </TableCell>
-
-                  <TableCell>
-                    {item.dueDate
-                      ? new Date(item.dueDate).toLocaleDateString("en-IN")
-                      : "-"}
-                  </TableCell>
-
-                  <TableCell>{item.priority || "-"}</TableCell>
-                  <TableCell>{item.vertical || "-"}</TableCell>
-                  <TableCell>{item.state || "-"}</TableCell>
-                  <TableCell>{item.status}</TableCell>
-
-                  <TableCell>
-                    {item.isApproved ? (
-                      <Check className="text-green-600" />
-                    ) : (
-                      <X className="text-red-600" />
-                    )}
-                  </TableCell>
-
-                  <TableCell>
-                    {item.isAuthorized ? (
-                      <Check className="text-green-600" />
-                    ) : (
-                      <X className="text-red-600" />
-                    )}
-                  </TableCell>
-
-                  <TableCell>{item.requestedBy}</TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
-
-      {/* Pagination */}
-      <div className="flex flex-col md:flex-row items-center justify-between gap-4 mt-4">
-      <div className="text-sm text-muted-foreground">
-        Total Records: {totalRecords}
-      </div>
-      <div className="flex justify-end gap-2 items-center">
+    <DataTable
+      data={data}
+      loading={false}
+      columns={columns}
+      page={page}
+      totalPages={totalPages}
+      totalRecords={totalRecords}
+      onPageChange={setPage}
+      limit={limit}
+      onLimitChange={setLimit}
+      searchValue={search}
+      onSearchChange={setSearch}
+      searchPlaceholder="Search (min 3 chars)..."
+      onCreate={() => router.push("/payments/create")}
+      createLabel="Payment"
+      onExport={exportExcel}
+      sortField={sortField}
+      sortOrder={sortOrder}
+      onSort={handleSort}
+      renderActions={(row) => (
         <Button
-          variant="outline"
-          size="sm"
-          disabled={page === 1}
-          onClick={() => setPage((p) => p - 1)}
+          variant="ghost"
+          size="icon"
+          className="text-orange-500 hover:text-orange-700"
+          onClick={() => router.push(`/payments/edit/${row._id}`)}
         >
-          Prev
+          <Pencil className="h-4 w-4" />
         </Button>
-
-        <span className="text-sm">Page {page}</span>
-
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={page * limit >= total}
-          onClick={() => setPage((p) => p + 1)}
-        >
-          Next
-        </Button>
-      </div>
-      </div>
-    </div>
+      )}
+      emptyMessage="No records found"
+      title="Payments"
+    />
   );
 }

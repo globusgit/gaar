@@ -9,13 +9,20 @@ import PageHeader from "@/app/_components/PageHeader";
 import { useSession } from "next-auth/react";
 import Notes from "@/app/_components/Notes";
 
+type ListItem = {
+  _id: string;
+  listItem: string;
+};
+
+type FundRequestForm = Record<string, unknown>;
+
 export default function EditFR() {
   const router = useRouter();
   const params = useParams();
   const { data: session, status } = useSession();
 
-  const [form, setForm] = useState<any>({});
-  const [lists, setLists] = useState<any>({
+  const [form, setForm] = useState<FundRequestForm>({});
+  const [lists, setLists] = useState<Record<string, ListItem[]>>({
     priority: [],
     status: [],
     paymentType: [],
@@ -27,27 +34,21 @@ export default function EditFR() {
   const [role, setRole] = useState("");
   const isAdmin = role === "ADMIN";
 
-  /*
-  RULES:
-  1. ADMIN can edit until Authorized
-  2. Once Authorized -> nobody can edit
-  3. Notes still work because Notes component is independent
-*/
-
-  const isLocked = form.isAuthorized === true || form.status === "Rejected";
-
+  const isLocked = (form.isAuthorized === true) || (form.status === "Rejected");
   const isPageReadOnly = !isAdmin || isLocked;
 
-  const [paymentSearch, setPaymentSearch] = useState("");
-  const [paymentResults, setPaymentResults] = useState<any[]>([]);
+  const [paymentResults, setPaymentResults] = useState<ListItem[]>([]);
+  const [woResults, setWoResults] = useState<ListItem[]>([]);
+  const [subVerticals, setSubVerticals] = useState<ListItem[]>([]);
 
-  const [woSearch, setWoSearch] = useState("");
-  const [woResults, setWoResults] = useState<any[]>([]);
-  const [subVerticals, setSubVerticals] = useState<any[]>([]);
-
-  // ---------------- FETCH ----------------
   const fetchList = async (name: string, orgId: string) => {
     const res = await fetch(`/api/system-list?listName=${name}&orgId=${orgId}`);
+
+    if (!res.ok) {
+      console.error("Failed to fetch list:", name, res.status);
+      return [];
+    }
+
     const data = await res.json();
 
     if (!data) return [];
@@ -55,11 +56,11 @@ export default function EditFR() {
     if (Array.isArray(data)) return data;
 
     if (Array.isArray(data.data)) {
-      if (Array.isArray(data.data[0])) return data.data[0];
-      return [];
+      if (Array.isArray(data.data[0])) return data.data[0] as ListItem[];
+      return data.data as ListItem[];
     }
 
-    return data?.data || [];
+    return (data?.data as ListItem[]) || [];
   };
 
   useEffect(() => {
@@ -67,12 +68,11 @@ export default function EditFR() {
 
     const init = async () => {
       const orgId = session?.user?.orgId;
+      if (!orgId) return;
 
-      setRole(session?.user?.role);
-      console.log("Session:", session);
+      setRole(session?.user?.role || "");
 
-      const fr = await (await fetch(`/api/fund-request/${params.id}`)).json();
-      console.log("Fetched FR:", fr);
+      const fr = (await (await fetch(`/api/fund-request/${params.id}`)).json()) as FundRequestForm;
 
       const [p, s, pt, ft, v, st] = await Promise.all([
         fetchList("Priority", orgId),
@@ -95,22 +95,21 @@ export default function EditFR() {
       setForm(fr);
 
       if (fr.vertical) {
-        const sv = await fetchList(fr.vertical, orgId);
+        const sv = await fetchList(fr.vertical as string, orgId);
         setSubVerticals(sv);
       }
     };
 
     init();
-  }, [status]);
+  }, [status, session?.user?.role, session?.user?.orgId, params.id]);
 
-  // ---------------- SUB VERTICAL ----------------
   useEffect(() => {
     if (!form.vertical || !session?.user?.orgId) return;
 
-    fetchList(form.vertical, session.user.orgId).then(setSubVerticals);
-  }, [form.vertical]);
+    fetchList(form.vertical as string, session.user.orgId).then(setSubVerticals);
+  }, [form.vertical, session?.user?.orgId]);
 
-  const autoSave = async (updatedForm: any) => {
+  const autoSave = async (updatedForm: FundRequestForm) => {
     await fetch(`/api/fund-request/${params.id}`, {
       method: "PUT",
       headers: {
@@ -119,7 +118,7 @@ export default function EditFR() {
       body: JSON.stringify(updatedForm),
     });
   };
-  // ---------------- ACTIONS ----------------
+
   const toggleApproved = async () => {
     if (!isAdmin || isLocked) return;
 
@@ -155,13 +154,23 @@ export default function EditFR() {
   };
 
   const handleSave = async () => {
-    await fetch(`/api/fund-request/${params.id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
-    });
+    try {
+      const res = await fetch(`/api/fund-request/${params.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
 
-    router.push("/fund-request");
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.message || "Failed to save fund request");
+      }
+
+      router.push("/fund-request");
+    } catch (err: any) {
+      console.error(err);
+      alert(err.message || "Something went wrong");
+    }
   };
 
   const handleReject = async () => {
@@ -171,15 +180,26 @@ export default function EditFR() {
     };
 
     setForm(updatedForm);
-    await fetch(`/api/fund-request/${params.id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(updatedForm),
-    });
 
-    router.push("/fund-request");
+    try {
+      const res = await fetch(`/api/fund-request/${params.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updatedForm),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.message || "Failed to reject fund request");
+      }
+
+      router.push("/fund-request");
+    } catch (err: any) {
+      console.error(err);
+      alert(err.message || "Something went wrong");
+    }
   };
-  // ---------------- UI ----------------
+
   return (
     <div className="space-y-4 px-0 md:px-4 lg:px-8">
       <PageHeader title="Edit Fund Request" />
@@ -191,7 +211,7 @@ export default function EditFR() {
 
           <div>
             <label className="text-sm font-medium">FR No</label>
-            <Input value={form.frNo || ""} disabled />
+            <Input value={(form.frNo as string) || ""} disabled />
           </div>
 
           {/* FR TYPE */}
@@ -200,12 +220,12 @@ export default function EditFR() {
             <select
               disabled={isPageReadOnly}
               className="border p-2 w-full rounded-md"
-              value={form.frType || ""}
+              value={(form.frType as string) || ""}
               onChange={(e) => setForm({ ...form, frType: e.target.value })}
             >
               <option value="">Select</option>
 
-              {lists.frType.map((p: any) => (
+              {lists.frType.map((p) => (
                 <option key={p._id} value={p.listItem}>
                   {p.listItem}
                 </option>
@@ -220,14 +240,14 @@ export default function EditFR() {
             <select
               disabled={isPageReadOnly}
               className="border p-2 w-full rounded-md"
-              value={form.paymentType || ""}
+              value={(form.paymentType as string) || ""}
               onChange={(e) =>
                 setForm({ ...form, paymentType: e.target.value })
               }
             >
               <option value="">Select</option>
 
-              {lists.paymentType.map((p: any) => (
+              {lists.paymentType.map((p) => (
                 <option key={p._id} value={p.listItem}>
                   {p.listItem}
                 </option>
@@ -239,7 +259,7 @@ export default function EditFR() {
             <label className="text-sm font-medium">Amount</label>
 
             <Input
-              value={form.amount || ""}
+              value={(form.amount as string) || ""}
               onChange={(e) => setForm({ ...form, amount: e.target.value })}
               disabled={isPageReadOnly}
             />
@@ -251,7 +271,7 @@ export default function EditFR() {
             <select
               className="border p-2 w-full rounded-md"
               disabled={isPageReadOnly}
-              value={form.vertical || ""}
+              value={(form.vertical as string) || ""}
               onChange={(e) =>
                 setForm({
                   ...form,
@@ -262,7 +282,7 @@ export default function EditFR() {
             >
               <option value="">Select</option>
 
-              {lists.vertical.map((v: any) => (
+              {lists.vertical.map((v) => (
                 <option key={v._id} value={v.listItem}>
                   {v.listItem}
                 </option>
@@ -276,7 +296,7 @@ export default function EditFR() {
             <select
               className="border p-2 w-full rounded-md"
               disabled={isPageReadOnly}
-              value={form.subVertical || ""}
+              value={(form.subVertical as string) || ""}
               onChange={(e) =>
                 setForm({
                   ...form,
@@ -286,7 +306,7 @@ export default function EditFR() {
             >
               <option value="">Select</option>
 
-              {subVerticals.map((sv: any) => (
+              {subVerticals.map((sv) => (
                 <option key={sv._id} value={sv.listItem}>
                   {sv.listItem}
                 </option>
@@ -297,7 +317,7 @@ export default function EditFR() {
           <div>
             <label className="text-sm font-medium">Status</label>
 
-            <Input value={form.status || ""} disabled />
+            <Input value={(form.status as string) || ""} disabled />
           </div>
 
           <div>
@@ -306,7 +326,7 @@ export default function EditFR() {
             <select
               className="border p-2 w-full rounded-md"
               disabled={isPageReadOnly}
-              value={form.paymentPriority || ""}
+              value={(form.paymentPriority as string) || ""}
               onChange={(e) =>
                 setForm({
                   ...form,
@@ -316,7 +336,7 @@ export default function EditFR() {
             >
               <option value="">Select</option>
 
-              {lists.priority.map((p: any) => (
+              {lists.priority.map((p) => (
                 <option key={p._id} value={p.listItem}>
                   {p.listItem}
                 </option>
@@ -330,7 +350,7 @@ export default function EditFR() {
             <Input
               disabled={isPageReadOnly}
               type="date"
-              value={form.dueDate?.substring(0, 10) || ""}
+              value={(form.dueDate as string)?.substring(0, 10) || ""}
               onChange={(e) =>
                 setForm({
                   ...form,
@@ -350,7 +370,7 @@ export default function EditFR() {
             <Textarea
               disabled={isPageReadOnly}
               className="min-h-[120px]"
-              value={form.description || ""}
+              value={(form.description as string) || ""}
               onChange={(e) =>
                 setForm({
                   ...form,
@@ -368,7 +388,7 @@ export default function EditFR() {
               <div>
                 <label className="text-sm font-medium">Requested By</label>
 
-                <Input value={form.requestedBy || ""} disabled />
+                <Input value={(form.requestedBy as string) || ""} disabled />
               </div>
 
               <div>
@@ -376,7 +396,7 @@ export default function EditFR() {
 
                 <Input
                   type="date"
-                  value={form.requestedDate?.substring(0, 10) || ""}
+                  value={(form.requestedDate as string)?.substring(0, 10) || ""}
                   disabled={isPageReadOnly}
                 />
               </div>
@@ -406,7 +426,7 @@ export default function EditFR() {
               <div>
                 <label className="text-sm font-medium">Approved By</label>
 
-                <Input value={form.approvedBy || ""} disabled />
+                <Input value={(form.approvedBy as string) || ""} disabled />
               </div>
 
               <div>
@@ -414,7 +434,7 @@ export default function EditFR() {
 
                 <Input
                   type="date"
-                  value={form.approvalDate?.substring(0, 10) || ""}
+                  value={(form.approvalDate as string)?.substring(0, 10) || ""}
                   disabled
                 />
               </div>
@@ -444,7 +464,7 @@ export default function EditFR() {
               <div>
                 <label className="text-sm font-medium">Authorized By</label>
 
-                <Input value={form.authorizedBy || ""} disabled />
+                <Input value={(form.authorizedBy as string) || ""} disabled />
               </div>
 
               <div>
@@ -452,7 +472,7 @@ export default function EditFR() {
 
                 <Input
                   type="date"
-                  value={form.authorizationDate?.substring(0, 10) || ""}
+                  value={(form.authorizationDate as string)?.substring(0, 10) || ""}
                   disabled
                 />
               </div>
@@ -469,7 +489,7 @@ export default function EditFR() {
 
                 <Input
                   disabled={isPageReadOnly}
-                  value={form.paymentTo || ""}
+                  value={(form.paymentTo as string) || ""}
                   onChange={async (e) => {
                     const value = e.target.value;
 
@@ -477,8 +497,6 @@ export default function EditFR() {
                       ...form,
                       paymentTo: value,
                     });
-
-                    setPaymentSearch(value);
 
                     if (value.length < 2) {
                       setPaymentResults([]);
@@ -491,26 +509,26 @@ export default function EditFR() {
 
                     const data = await res.json();
 
-                    setPaymentResults(data?.data || []);
+                    setPaymentResults((data?.data as ListItem[]) || []);
                   }}
                 />
 
                 {paymentResults.length > 0 && (
                   <div className="absolute z-50 bg-white border rounded-md shadow-md w-full max-h-60 overflow-y-auto">
-                    {paymentResults.map((c: any) => (
+                    {paymentResults.map((c) => (
                       <div
                         key={c._id}
                         className="p-2 hover:bg-gray-100 cursor-pointer"
                         onClick={() => {
                           setForm({
                             ...form,
-                            paymentTo: c.name,
+                            paymentTo: c.listItem,
                           });
 
                           setPaymentResults([]);
                         }}
                       >
-                        {c.name}
+                        {c.listItem}
                       </div>
                     ))}
                   </div>
@@ -522,7 +540,7 @@ export default function EditFR() {
                 <select
                   className="border p-2 w-full rounded-md"
                   disabled={isPageReadOnly}
-                  value={form.state || ""}
+                  value={(form.state as string) || ""}
                   onChange={(e) =>
                     setForm({
                       ...form,
@@ -532,7 +550,7 @@ export default function EditFR() {
                 >
                   <option value="">Select</option>
 
-                  {lists.state.map((s: any) => (
+                  {lists.state.map((s) => (
                     <option key={s._id} value={s.listItem}>
                       {s.listItem}
                     </option>
@@ -554,7 +572,7 @@ export default function EditFR() {
 
                 <Input
                   disabled={isPageReadOnly}
-                  value={form.woNo || ""}
+                  value={(form.woNo as string) || ""}
                   onChange={async (e) => {
                     const value = e.target.value;
 
@@ -562,8 +580,6 @@ export default function EditFR() {
                       ...form,
                       woNo: value,
                     });
-
-                    setWoSearch(value);
 
                     if (value.length < 2) {
                       setWoResults([]);
@@ -576,27 +592,27 @@ export default function EditFR() {
 
                     const data = await res.json();
 
-                    setWoResults(data?.data || []);
+                    setWoResults((data?.data as ListItem[]) || []);
                   }}
                 />
 
                 {woResults.length > 0 && (
                   <div className="absolute z-50 bg-white border rounded-md shadow-md w-full max-h-60 overflow-y-auto">
-                    {woResults.map((wo: any) => (
+                    {woResults.map((wo) => (
                       <div
                         key={wo._id}
                         className="p-2 hover:bg-gray-100 cursor-pointer"
                         onClick={() => {
                           setForm({
                             ...form,
-                            woNo: wo.woNo,
-                            woTitle: wo.woTitle,
+                            woNo: wo.listItem,
+                            woTitle: wo.listItem,
                           });
 
                           setWoResults([]);
                         }}
                       >
-                        {wo.woNo} - {wo.woTitle}
+                        {wo.listItem}
                       </div>
                     ))}
                   </div>
@@ -606,7 +622,7 @@ export default function EditFR() {
               <div>
                 <label className="text-sm font-medium">Work Order Title</label>
 
-                <Input disabled value={form.woTitle || ""} />
+                <Input disabled value={(form.woTitle as string) || ""} />
               </div>
 
               <div>
@@ -614,7 +630,7 @@ export default function EditFR() {
 
                 <Input
                   disabled={isPageReadOnly}
-                  value={form.tenderNo || ""}
+                  value={(form.tenderNo as string) || ""}
                   onChange={(e) =>
                     setForm({
                       ...form,
@@ -629,7 +645,7 @@ export default function EditFR() {
 
                 <Input
                   disabled={isPageReadOnly}
-                  value={form.tenderName || ""}
+                  value={(form.tenderName as string) || ""}
                   onChange={(e) =>
                     setForm({
                       ...form,

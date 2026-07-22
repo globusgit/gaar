@@ -1,16 +1,17 @@
 import { NextResponse } from "next/server";
 import connectDB from "@/lib/mongoose";
 import PaymentInfo from "@/models/PaymentInfo";
-import ReceivableIno from "@/models/ReceivableInfo";
 import FundRequest from "@/models/FundRequest";
 import Config from "@/models/Config";
-
-import { auth } from "@/lib/auth";
 import Employee from "@/models/Employee";
+import { logActivity } from "@/lib/activityLog";
+import { notifyOrg } from "@/lib/notification";
+import { requireAuth, sanitizeRegex, sanitizeSortField } from "@/lib/apiGuard";
 
-/**
- * Get all Payments Info of an organization
- */
+const SAFE_FR_CREATE_FIELDS = [
+  "frType","paymentType","woNo","woTitle","amount","vertical","subVertical","paymentTo","requestedBy","isApproved","approvedBy","approvalDate","isAuthorized","authorizedBy","authorizationDate","requestedDate","paymentPriority","dueDate","state","tenderNo","tenderDesc","woDepartment","bgMaturityDate","description",
+];
+
 export async function GET(req) {
   try {
     await connectDB();
@@ -21,47 +22,43 @@ export async function GET(req) {
     const limit = parseInt(searchParams.get("limit")) || 10;
     const skip = (page - 1) * limit;
 
-    const orgId = searchParams.get("orgId");
     const search = searchParams.get("search") || "";
 
-    // SORT PARAMS
-    const sortField = searchParams.get("sortField") || "createdAt";
+    const sortField = sanitizeSortField(searchParams.get("sortField") || "createdAt");
     const sortOrder = searchParams.get("sortOrder") === "asc" ? 1 : -1;
 
-    const session = await auth();
-    const user = session?.user;
-
-    if (!user) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
-    }
+    const token = await requireAuth(req);
+    if (token instanceof Response) return token;
 
     const employee = await Employee.findOne({
-      phone: user.username,
-      orgId,
+      phone: token.username,
+      orgId: token.orgId,
     });
 
-    let filter = { orgId };
+    let filter = { orgId: token.orgId };
 
-    if (!["ADMIN", "ACCOUNTS"].includes(user.role)) {
+    if (!["SYS_ADMIN", "ADMIN", "ACCOUNTS"].includes(token.role)) {
+      if (!employee) {
+        return NextResponse.json({ data: [], total: 0, page, limit, totalPages: 0 });
+      }
       filter.requestedById = employee._id;
     }
 
-    // SEARCH
     if (search) {
+      const escapedSearch = sanitizeRegex(search);
       filter.$or = [
-        { frNo: { $regex: search, $options: "i" } },
-        { state: { $regex: search, $options: "i" } },
-        { vertical: { $regex: search, $options: "i" } },
-        { subVertical: { $regex: search, $options: "i" } },
-        { description: { $regex: search, $options: "i" } },
-        { status: { $regex: search, $options: "i" } },
+        { frNo: { $regex: escapedSearch, $options: "i" } },
+        { state: { $regex: escapedSearch, $options: "i" } },
+        { vertical: { $regex: escapedSearch, $options: "i" } },
+        { subVertical: { $regex: escapedSearch, $options: "i" } },
+        { description: { $regex: escapedSearch, $options: "i" } },
+        { status: { $regex: escapedSearch, $options: "i" } },
       ];
     }
 
-    //  APPLY SORT HERE
     const [frs, total] = await Promise.all([
       FundRequest.find(filter)
-        .sort({ [sortField]: sortOrder }) // ⭐ THIS LINE
+        .sort({ [sortField]: sortOrder })
         .skip(skip)
         .limit(limit),
 
@@ -85,29 +82,60 @@ export async function GET(req) {
 
 export async function POST(req) {
   await connectDB();
-  const body = await req.json();
 
-  const config = await Config.findOne({ name: "FR Count" });
+  const token = await requireAuth(req);
+  if (token instanceof Response) return token;
 
-  const frNo = "FR" + config.value.toString();
+  try {
+    const body = await req.json();
 
-  const fr = await FundRequest.create({
-    ...body,
-    frNo,
-    status: "Pending Approval",
-    requestedDate: new Date(),
-  });
+    const config = await Config.findOne({ name: "FR Count" });
 
-  if (fr) {
-    //console.log("Created Payment Record: ")
-    let frCount = parseInt(config.value, 10) + 1;
-    await Config.findOneAndUpdate(
-      { name: "FR Count" },
-      { value: frCount.toString() },
+    const frNo = "FR" + config.value.toString();
+
+    const data = {};
+    for (const f of SAFE_FR_CREATE_FIELDS) {
+      if (body[f] !== undefined) data[f] = body[f];
+    }
+    data.orgId = token.orgId;
+    data.frNo = frNo;
+    data.status = "Pending Approval";
+    data.requestedDate = new Date();
+
+    const fr = await FundRequest.create(data);
+
+    if (fr) {
+      let frCount = parseInt(config.value, 10) + 1;
+      await Config.findOneAndUpdate(
+        { name: "FR Count" },
+        { value: frCount.toString() },
+      );
+    }
+
+    await logActivity({
+      activity: "Fund Request Created",
+      description: `Fund Request ${fr.frNo} was created`,
+      entity: "FundRequest",
+      entityId: fr._id.toString(),
+      orgId: fr.orgId,
+      req: req,
+    });
+
+    await notifyOrg(
+      fr.orgId,
+      "Fund request created",
+      `Fund Request ${fr.frNo} was submitted for approval.`,
+      "info"
+    );
+
+    return NextResponse.json(
+      { message: "Fund Request successfully submitted!", data: fr },
+      { status: 201 },
+    );
+  } catch (err) {
+    return NextResponse.json(
+      { message: "Something went wrong!" },
+      { status: 500 }
     );
   }
-
-  return NextResponse.json("Fund Request successfully submitted!", {
-    status: 200,
-  });
 }

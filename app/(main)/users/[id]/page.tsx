@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import PageHeader from "@/app/_components/PageHeader";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,6 +20,23 @@ import { Separator } from "@/components/ui/separator";
 const ROLE_OPTIONS = ["ADMIN", "ORG_USER", "USER", "MANAGER", "ACCOUNTANT"];
 const STATUS_OPTIONS = ["Active", "InActive"];
 
+const MODULE_OPTIONS = [
+  { value: "dashboard", label: "Dashboard" },
+  { value: "employees", label: "Employees" },
+  { value: "clients", label: "Clients" },
+  { value: "work-orders", label: "Work Orders" },
+  { value: "tenders", label: "Tenders" },
+  { value: "fund-request", label: "Fund Request" },
+  { value: "payments", label: "Payments" },
+  { value: "receivables", label: "Receivables" },
+  { value: "organizations", label: "Organizations" },
+  { value: "users", label: "Users" },
+  { value: "settings", label: "Settings" },
+  { value: "master-lists", label: "Master Lists" },
+  { value: "system-settings", label: "System Settings" },
+  { value: "audit-logs", label: "Audit Logs" },
+];
+
 export default function EditUserPage() {
   const router = useRouter();
   const params = useParams();
@@ -28,9 +46,18 @@ export default function EditUserPage() {
     employeeName: "",
     role: "",
     status: "",
+    modules: [] as string[],
   });
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  const [showPasswordChange, setShowPasswordChange] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+  const [passwordSuccess, setPasswordSuccess] = useState("");
+  const [changingPassword, setChangingPassword] = useState(false);
 
   useEffect(() => {
     const loadUser = async () => {
@@ -44,6 +71,7 @@ export default function EditUserPage() {
           employeeName: data.employeeName || "",
           role: data.role || "",
           status: data.status || "",
+          modules: data.modules || [],
         });
       } catch (err) {
         console.error(err);
@@ -64,6 +92,7 @@ export default function EditUserPage() {
         body: JSON.stringify({
           role: form.role,
           status: form.status,
+          modules: form.modules,
         }),
       });
 
@@ -77,6 +106,52 @@ export default function EditUserPage() {
       console.error(err);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPasswordError("");
+    setPasswordSuccess("");
+
+    if (newPassword.length < 6) {
+      setPasswordError("New password must be at least 6 characters");
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setPasswordError("Passwords do not match");
+      return;
+    }
+
+    setChangingPassword(true);
+
+    try {
+      const res = await fetch(`/api/user/${params.id}/change-password`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          currentPassword: currentPassword,
+          newPassword: newPassword,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setPasswordError(data.message || "Failed to change password");
+        return;
+      }
+
+      setPasswordSuccess("Password changed successfully!");
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      setShowPasswordChange(false);
+    } catch (err) {
+      setPasswordError("Something went wrong");
+    } finally {
+      setChangingPassword(false);
     }
   };
 
@@ -151,6 +226,114 @@ export default function EditUserPage() {
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="text-sm font-medium text-slate-700 block mb-2">
+                Modules
+              </label>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {MODULE_OPTIONS.map((module) => (
+                  <div key={module.value} className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id={`module-${module.value}`}
+                      checked={form.modules.includes(module.value)}
+                      onChange={(e) => {
+                        setForm((prev) => ({
+                          ...prev,
+                          modules: e.target.checked
+                            ? [...prev.modules, module.value]
+                            : prev.modules.filter((m) => m !== module.value),
+                        }));
+                      }}
+                      className="h-4 w-4 rounded border-gray-300 text-cyan-700 focus:ring-cyan-700"
+                    />
+                    <label
+                      htmlFor={`module-${module.value}`}
+                      className="text-sm text-slate-600 cursor-pointer"
+                    >
+                      {module.label}
+                    </label>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* Password Change */}
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold">Password</h3>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowPasswordChange(!showPasswordChange)}
+                  className="text-cyan-700 border-cyan-200 hover:bg-cyan-50"
+                >
+                  {showPasswordChange ? "Cancel" : "Change Password"}
+                </Button>
+              </div>
+
+              {showPasswordChange && (
+                <form
+                  onSubmit={handleChangePassword}
+                  className="space-y-4 border rounded-lg p-4 bg-slate-50"
+                >
+                  {passwordError && (
+                    <div className="bg-red-50 text-red-600 text-sm p-3 rounded-md border border-red-200">
+                      {passwordError}
+                    </div>
+                  )}
+
+                  {passwordSuccess && (
+                    <div className="bg-green-50 text-green-600 text-sm p-3 rounded-md border border-green-200">
+                      {passwordSuccess}
+                    </div>
+                  )}
+
+                  <div className="space-y-2">
+                    <Label>Current Password</Label>
+                    <Input
+                      type="password"
+                      value={currentPassword}
+                      onChange={(e) => setCurrentPassword(e.target.value)}
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>New Password</Label>
+                    <Input
+                      type="password"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Confirm New Password</Label>
+                    <Input
+                      type="password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      required
+                    />
+                  </div>
+
+                  <Button
+                    type="submit"
+                    disabled={changingPassword}
+                    className="bg-cyan-900 hover:bg-cyan-700"
+                  >
+                    {changingPassword
+                      ? "Changing Password..."
+                      : "Update Password"}
+                  </Button>
+                </form>
+              )}
             </div>
 
             <Separator />

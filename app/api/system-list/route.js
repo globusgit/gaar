@@ -1,21 +1,21 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongoose";
 import SystemList from "@/models/SystemList";
+import { logActivity } from "@/lib/activityLog";
+import { requireAuth, requireOrgScope, sanitizeRegex, sanitizeSortField } from "@/lib/apiGuard";
 
 export async function GET(req) {
+  const token = await requireAuth(req);
+  if (token instanceof Response) return token;
+
   try {
     await connectDB();
+
     const { searchParams } = new URL(req.url);
     const listName = searchParams.get("listName");
-    //For future use when we want to fetch lists for different orgs. Currently, it will fetch the same list as orgId is not being used in backend.
-    // const orgId = searchParams.get('orgId');
-    const orgId = "INTR"; // Placeholder - replace with actual orgId logic
-    console.log("List Name: ", listName);
-    console.log("Org Id: ", orgId);
+    const orgId = token.orgId;
 
-    const systemLists = await Promise.all([
-      SystemList.find({ listName: listName, orgId: orgId }),
-    ]);
+    const systemLists = await SystemList.find({ listName, orgId });
     return NextResponse.json(
       {
         data: systemLists,
@@ -23,37 +23,102 @@ export async function GET(req) {
       { status: 200 },
     );
   } catch (err) {
-    console.log("Server Error: ", err);
     return NextResponse.json({ error: "Server Error" }, { status: 500 });
   }
 }
 
 export async function POST(req) {
+  const token = await requireAuth(req);
+  if (token instanceof Response) return token;
+
   try {
     await connectDB();
+
     const body = await req.json();
-    const orgId = body.orgId;
-    const listName = body.listName;
-    const listItem = body.listItem;
-    console.log("Body: ", body);
-    const list = await SystemList.findOne({
-      listName: listName,
-      listItem: listItem,
-      orgId: orgId,
-    });
-    if (list) {
+    const { listName, listItem } = body;
+    const orgId = token.orgId;
+
+    if (!listItem || !listItem.trim()) {
       return NextResponse.json(
-        { message: "System List already exists!" },
-        { status: 400 },
+        { message: "List item is required" },
+        { status: 400 }
       );
     }
-    const systemList = await SystemList.create(body);
+
+    if (!listName || !listName.trim()) {
+      return NextResponse.json(
+        { message: "List name is required" },
+        { status: 400 }
+      );
+    }
+
+    const systemList = await SystemList.create({
+      listName: listName.trim(),
+      listItem: listItem.trim(),
+      orgId,
+      status: "Active",
+    });
+
+    await logActivity({
+      activity: "Master List Item Added",
+      description: `Item "${listItem}" added to ${listName}`,
+      entity: "SystemList",
+      entityId: systemList._id.toString(),
+      orgId: orgId,
+      req: req,
+    });
+
     return NextResponse.json(
-      { message: "System List created successfully!" },
-      { status: 200 },
+      { message: "System List created successfully!", data: systemList },
+      { status: 201 }
     );
   } catch (err) {
-    console.log("Server Error: ", err);
+    if (err.code === 11000) {
+      return NextResponse.json(
+        { message: "System List already exists!" },
+        { status: 400 }
+      );
+    }
+    return NextResponse.json({ error: "Server Error" }, { status: 500 });
+  }
+}
+
+export async function DELETE(req) {
+  const token = await requireAuth(req);
+  if (token instanceof Response) return token;
+
+  try {
+    await connectDB();
+
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get("id");
+
+    if (!id) {
+      return NextResponse.json(
+        { message: "ID is required" },
+        { status: 400 }
+      );
+    }
+
+    const item = await SystemList.findById(id);
+    if (!item) {
+      return NextResponse.json(
+        { message: "Item not found" },
+        { status: 404 }
+      );
+    }
+
+    if (item.orgId !== token.orgId && token.role !== "SYS_ADMIN") {
+      return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+    }
+
+    await SystemList.findByIdAndDelete(id);
+
+    return NextResponse.json(
+      { message: "System List deleted successfully!" },
+      { status: 200 }
+    );
+  } catch (err) {
     return NextResponse.json({ error: "Server Error" }, { status: 500 });
   }
 }

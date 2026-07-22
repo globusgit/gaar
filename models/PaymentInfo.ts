@@ -4,11 +4,11 @@ const PaymentInfoSchema = new mongoose.Schema(
   {
     paymentType: {
       type: String,
-      require: true,
+      required: true,
     },
     frType: {
       type: String,
-      require: true,
+      required: true,
     },
     woNo: {
       type: String,
@@ -24,34 +24,34 @@ const PaymentInfoSchema = new mongoose.Schema(
     },
     description: {
       type: String,
-      require: true,
+      required: true,
     },
     requestAmount: {
       type: Number,
-      require: true,
+      required: true,
     },
     paidAmount: {
       type: Number,
-      require: true,
+      required: true,
     },
     balanceAmount: {
       type: Number,
-      require: true,
+      required: true,
     },
     vertical: {
       type: String,
     },
     subVertical: {
       type: String,
-      require: true,
+      required: true,
     },
     paymentTo: {
       type: String,
-      require: true,
+      required: true,
     },
     requestedBy: {
       type: String,
-      require: true,
+      required: true,
     },
     isApproved: {
       type: Boolean,
@@ -59,7 +59,7 @@ const PaymentInfoSchema = new mongoose.Schema(
     },
     approvedBy: {
       type: String,
-      require: true,
+      required: true,
     },
     approvedDate: {
       type: Date,
@@ -76,7 +76,7 @@ const PaymentInfoSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      require: true,
+      required: true,
     },
     requestedDate: {
       type: Date,
@@ -107,11 +107,15 @@ const PaymentInfoSchema = new mongoose.Schema(
     },
     orgId: {
       type: String,
-      require: true,
+      required: true,
     },
   },
   { timestamps: true },
 );
+
+PaymentInfoSchema.index({ orgId: 1, status: 1 });
+PaymentInfoSchema.index({ orgId: 1, dueDate: 1 });
+PaymentInfoSchema.index({ orgId: 1, createdAt: -1 });
 
 export default mongoose.models.PaymentInfo ||
   mongoose.model("PaymentInfo", PaymentInfoSchema);

@@ -1,35 +1,37 @@
-// /api/payment-to/search/route.ts
-
 import { NextRequest, NextResponse } from "next/server";
 import connectDB from "@/lib/mongoose";
 import Employee from "@/models/Employee";
 import Client from "@/models/Client";
+import { requireAuth, sanitizeRegex } from "@/lib/apiGuard";
 
 export async function GET(req) {
   try {
     await connectDB();
 
+    const token = await requireAuth(req);
+    if (token instanceof Response) return token;
+
     const { searchParams } = new URL(req.url);
 
     const q = searchParams.get("q") || "";
-    const orgId = searchParams.get("orgId");
 
     if (!q) {
       return NextResponse.json({ data: [] });
     }
 
-    const regex = new RegExp(q, "i");
+    const escapedQ = sanitizeRegex(q);
+    const regex = new RegExp(escapedQ, "i");
 
     const [employees, clients] = await Promise.all([
       Employee.find({
-        orgId,
+        orgId: token.orgId,
         name: regex,
       })
         .limit(10)
         .lean(),
 
       Client.find({
-        orgId,
+        orgId: token.orgId,
         client: regex,
       })
         .limit(10)
