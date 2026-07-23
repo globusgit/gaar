@@ -15,7 +15,7 @@ const REQUIRED_ENV_VARS = [
   "DEFAULT_ORG_USER_PASSWORD",
 ];
 
-export async function POST(req: NextRequest) {
+export async function POST(req) {
   try {
     await connectDB();
 

@@ -105,7 +105,7 @@ export async function PATCH(req) {
     const allowedFields = [
       "client", "clientId", "website", "emailId", "phone", "gstNo", "state",
     ];
-    const updateData: Record<string, unknown> = {};
+    const updateData = {};
     for (const field of allowedFields) {
       if (field in body) {
         updateData[field] = body[field];

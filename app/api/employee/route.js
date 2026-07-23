@@ -27,7 +27,7 @@ const ALL_MODULES = [
   "audit-logs",
 ];
 
-function getDefaultModules(role: string) {
+function getDefaultModules(role) {
   switch (role) {
     case "SYS_ADMIN":
       return ALL_MODULES;

@@ -31,7 +31,7 @@ export async function GET(req, { params }) {
   }
 }
 
-function getSafeFileName(originalName: string): string {
+function getSafeFileName(originalName) {
   const base = path.basename(originalName).replace(/\s+/g, "_");
   const timestamp = Date.now();
   const ext = path.extname(base);

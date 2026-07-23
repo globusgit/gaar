@@ -45,7 +45,7 @@ export async function POST(req){
         }
 
         const allowedFields = ["name", "value", "orgId"];
-        const configData: Record<string, unknown> = {};
+        const configData = {};
         for (const field of allowedFields) {
           if (field in body) {
             configData[field] = body[field];

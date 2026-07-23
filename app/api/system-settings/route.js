@@ -27,7 +27,7 @@ export async function GET(req) {
     }
 
     const configs = await Config.find({ orgId });
-    const settings: Record<string, string> = {};
+    const settings = {};
 
     configs.forEach((c) => {
       settings[c.name] = c.value;
