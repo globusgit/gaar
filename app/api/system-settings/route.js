@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import connectDB from "@/lib/mongoose";
 import Config from "@/models/Config";
 import { logActivity } from "@/lib/activityLog";
-import { requireAuth, requireOrgScope, sanitizeRegex, sanitizeSortField } from "@/lib/apiGuard";
+import { requireAuth, hasModuleAccess } from "@/lib/apiGuard";
 
 const DEFAULT_ORG_ID = "GLOBAL";
 
@@ -20,10 +20,10 @@ export async function GET(req) {
 
   try {
     const { searchParams } = new URL(req.url);
-    let orgId = searchParams.get("orgId") || DEFAULT_ORG_ID;
+    let orgId = token.orgId || DEFAULT_ORG_ID;
 
-    if (token.role !== "SYS_ADMIN" && token.role !== "ADMIN") {
-      orgId = token.orgId || DEFAULT_ORG_ID;
+    if (token.role === "SYS_ADMIN" && searchParams.get("orgId")) {
+      orgId = searchParams.get("orgId");
     }
 
     const configs = await Config.find({ orgId });
@@ -46,19 +46,19 @@ export async function POST(req) {
   const token = await requireAuth(req);
   if (token instanceof Response) return token;
 
-  if (token.role !== "SYS_ADMIN" && token.role !== "ADMIN") {
-    return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+  if (!hasModuleAccess(token, "system-settings")) {
+    return NextResponse.json({ message: "Forbidden: System Settings module required" }, { status: 403 });
   }
 
   await connectDB();
 
   try {
     const body = await req.json();
-    let orgId = body.orgId || DEFAULT_ORG_ID;
+    let orgId = token.orgId || DEFAULT_ORG_ID;
     const settings = body.settings || {};
 
-    if (token.role !== "SYS_ADMIN") {
-      orgId = token.orgId || DEFAULT_ORG_ID;
+    if (token.role === "SYS_ADMIN" && body.orgId) {
+      orgId = body.orgId;
     }
 
     const allowedKeys = Object.keys(settings).filter((key) =>
@@ -77,7 +77,7 @@ export async function POST(req) {
       await Config.findOneAndUpdate(
         { name: key, orgId },
         { name: key, value, orgId },
-        { upsert: true, new: true },
+        { upsert: true, returnDocument: "after" },
       );
     }
 

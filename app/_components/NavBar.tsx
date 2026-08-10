@@ -1,5 +1,5 @@
 "use client";
-import { Bell, Menu, LogOut, User, KeyRound, IdCard } from "lucide-react";
+import { Bell, LogOut, User, KeyRound, IdCard } from "lucide-react";
 import { useSession, signOut } from "next-auth/react";
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -14,7 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { useNotifications } from "./NotificationContext";
 
-const NavBar = () => {
+const NavBar = ({ menuButton }: { menuButton?: React.ReactNode }) => {
   const { data: session } = useSession();
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
 
@@ -44,11 +44,12 @@ const NavBar = () => {
   };
 
   return (
-    <div className="flex justify-between items-center w-full mb-7 relative">
-      <div className="flex justify-between items-center gap-5">
+    <header className="sticky top-0 z-30 flex min-h-16 w-full items-center justify-between border-b bg-white/95 px-3 shadow-sm backdrop-blur sm:px-5">
+      <div className="flex items-center gap-2">
+        {menuButton}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="relative text-white hover:text-black">
+            <Button variant="ghost" size="icon" className="relative text-slate-700 hover:bg-cyan-50 hover:text-cyan-900" aria-label={`Notifications${unreadCount ? `, ${unreadCount} unread` : ""}`}>
               <Bell className="h-5 w-5" />
               {unreadCount > 0 && (
                 <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
@@ -57,7 +58,7 @@ const NavBar = () => {
               )}
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-80 z-[60]">
+          <DropdownMenuContent align="start" className="z-[60] w-[calc(100vw-2rem)] max-w-80">
             <DropdownMenuLabel className="flex justify-between items-center">
               Notifications
               {unreadCount > 0 && (
@@ -97,11 +98,11 @@ const NavBar = () => {
         </DropdownMenu>
       </div>
 
-      <div className="flex justify-between items-center gap-5">
+      <div className="flex items-center gap-3">
         <div className="hidden md:flex justify-between items-center gap-5">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="p-0 rounded-full h-9 w-9">
+              <Button variant="ghost" className="h-10 w-10 rounded-full p-0" aria-label="Open account menu">
                 <div className="w-9 h-9 cursor-pointer">
                   {employeeData?.photo && employeeData.photo !== "default-avatar.jpg" ? (
                     <img
@@ -153,10 +154,51 @@ const NavBar = () => {
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
+
+        <div className="md:hidden">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="h-10 w-10 rounded-full p-0" aria-label="Open account menu">
+                <div className="w-9 h-9 cursor-pointer">
+                  {employeeData?.photo && employeeData.photo !== "default-avatar.jpg" ? (
+                    <img
+                      src={`/api/files/employees/${employeeData.photo}`}
+                      onError={(e) => {
+                        e.currentTarget.src = "/default-avatar.jpg";
+                      }}
+                      alt={employeeData.name}
+                      className="w-9 h-9 rounded-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-9 h-9 rounded-full bg-gray-400 flex items-center justify-center text-white text-sm">
+                      {displayName?.charAt(0)?.toUpperCase()}
+                    </div>
+                  )}
+                </div>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-64 z-[60]">
+              <DropdownMenuLabel className="font-bold text-cyan-900">
+                {displayName}
+              </DropdownMenuLabel>
+              <div className="px-2 py-1.5 text-xs text-slate-500 flex items-center gap-2">
+                <IdCard className="h-3 w-3" />
+                {session?.user?.username || "N/A"}
+              </div>
+              <div className="px-2 py-1.5 text-xs text-slate-500 capitalize">
+                {session?.user?.role?.replace(/_/g, " ").toLowerCase() || "N/A"}
+              </div>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-md font-bold text-cyan-900 focus:text-red-600">
+                <LogOut className="mr-2 h-4 w-4 text-black" />
+                Logout
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
-    </div>
+    </header>
   );
 };
 
 export default NavBar;
-

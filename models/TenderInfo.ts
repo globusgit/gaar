@@ -5,7 +5,6 @@ const TenderInfoSchema = new mongoose.Schema(
     tenderNo: {
       type: String,
       required: true,
-      unique: true,
     },
     description: {
       type: String,
@@ -156,7 +155,7 @@ const TenderInfoSchema = new mongoose.Schema(
 TenderInfoSchema.index({
   orgId: 1,
   tenderNo: 1,
-});
+}, { unique: true });
 TenderInfoSchema.index({
   orgId: 1,
   description: 1,

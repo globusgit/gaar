@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import connectDB from "@/lib/mongoose";
 import FundRequest from "@/models/FundRequest";
+import Employee from "@/models/Employee";
 import { requireAuth } from "@/lib/apiGuard";
 
-export async function GET(req, res) {
+export async function GET(req, { params }) {
   try {
     await connectDB();
 
@@ -16,8 +17,22 @@ export async function GET(req, res) {
     const limit = parseInt(searchParams.get("limit")) || 20;
     const skip = (page - 1) * limit;
 
-    filter.isApproved = false;
     filter.isAuthorized = false;
+
+    if (!["ADMIN", "SYS_ADMIN", "MANAGER"].includes(token.role)) {
+      const employee = await Employee.findOne({
+        $or: [
+          { empId: token.username },
+          { phone: token.username },
+        ],
+        orgId: token.orgId,
+      }).lean();
+
+      if (!employee) {
+        return NextResponse.json({ data: [], total: 0, page, limit, totalPages: 0 });
+      }
+      filter.requestedById = employee._id;
+    }
 
     const data = await FundRequest.find(filter).skip(skip).limit(limit);
     const total = await FundRequest.countDocuments(filter);

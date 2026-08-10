@@ -12,8 +12,7 @@ export async function GET(req) {
     const { searchParams } = new URL(req.url);
 
     const phone = searchParams.get("phone");
-
-    const orgId = searchParams.get("orgId");
+    const orgId = token.orgId;
 
     const query = { orgId };
 

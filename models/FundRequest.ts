@@ -49,7 +49,7 @@ const FundRequestSchema = new mongoose.Schema(
     },
     approvedBy: {
       type: String,
-      required: true,
+      required: false
     },
     approvalDate: {
       type: Date,
@@ -111,7 +111,7 @@ const FundRequestSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-FundRequestSchema.index({ orgId: 1, frNo: 1 });
+FundRequestSchema.index({ orgId: 1, frNo: 1 }, { unique: true });
 FundRequestSchema.index({ orgId: 1, status: 1 });
 FundRequestSchema.index({ orgId: 1, createdAt: -1 });
 

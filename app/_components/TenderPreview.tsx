@@ -16,7 +16,7 @@ export function TenderPreview({ tender }: { tender: Tender }) {
       </div>
 
       {/* Details */}
-      <div className="grid grid-cols-2 gap-3 text-sm">
+      <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
         <div>
           <div className="text-muted-foreground">Department</div>
           <div className="font-medium">{tender.tenderingDepartment || "-"}</div>
@@ -50,6 +50,44 @@ export function TenderPreview({ tender }: { tender: Tender }) {
           <div className="text-muted-foreground">BG Amount</div>
           <div className="font-medium">
             ₹{Number(tender.bgAmount || 0).toLocaleString("en-IN")}
+          </div>
+        </div>
+
+        <div>
+          <div className="text-muted-foreground">Vertical</div>
+          <div className="font-medium">{tender.vertical || "-"}</div>
+        </div>
+
+        <div>
+          <div className="text-muted-foreground">Sub Vertical</div>
+          <div className="font-medium">{tender.subVertical || "-"}</div>
+        </div>
+
+        <div>
+          <div className="text-muted-foreground">Country</div>
+          <div className="font-medium">{tender.country || "-"}</div>
+        </div>
+
+        <div>
+          <div className="text-muted-foreground">State</div>
+          <div className="font-medium">{tender.state || "-"}</div>
+        </div>
+
+        <div>
+          <div className="text-muted-foreground">Tender Date</div>
+          <div className="font-medium">
+            {tender.tenderDate
+              ? new Date(tender.tenderDate).toLocaleDateString("en-IN")
+              : "-"}
+          </div>
+        </div>
+
+        <div>
+          <div className="text-muted-foreground">Opening Date</div>
+          <div className="font-medium">
+            {tender.tenderOpeningDate
+              ? new Date(tender.tenderOpeningDate).toLocaleDateString("en-IN")
+              : "-"}
           </div>
         </div>
       </div>

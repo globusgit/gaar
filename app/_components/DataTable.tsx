@@ -24,6 +24,8 @@ import {
 import {
   ArrowUpDown,
   FileSpreadsheet,
+  Inbox,
+  Loader2,
   Plus,
   Search,
 } from "lucide-react";
@@ -98,15 +100,13 @@ export default function DataTable<T>({
   };
 
   return (
-    <div className="space-y-4 px-0 md:px-4 lg:px-8">
+    <section className="space-y-4 p-3 sm:p-4 lg:p-6" aria-busy={loading}>
       {title && (
-        <div className="bg-gradient-to-r from-cyan-500 to-cyan-900 text-white text-center py-2 rounded-xl text-lg font-semibold shadow">
-          {title}
-        </div>
+        <h1 className="rounded-xl bg-gradient-to-r from-cyan-800 to-cyan-950 px-4 py-3 text-lg font-semibold text-white shadow-sm">{title}</h1>
       )}
 
       {/* Toolbar */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      <div className="flex flex-col justify-between gap-3 rounded-xl border bg-white p-3 shadow-sm md:flex-row md:items-center">
         <div className="relative w-full md:w-[350px]">
           <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
           <Input
@@ -117,12 +117,13 @@ export default function DataTable<T>({
               onPageChange(1);
             }}
             className="pl-9 bg-white"
+            aria-label={searchPlaceholder}
           />
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex w-full flex-wrap items-center gap-2 md:w-auto md:justify-end">
           {showTotalRecords && (
-            <span className="text-sm text-slate-600 font-medium">
+            <span className="mr-auto text-sm font-medium text-slate-600 md:mr-0">
               Total Records: {totalRecords}
             </span>
           )}
@@ -130,6 +131,7 @@ export default function DataTable<T>({
           <select
             className="border rounded-md px-2 py-1.5 text-sm h-9 w-16"
             value={limit}
+            aria-label="Rows per page"
             onChange={(e) => {
               onLimitChange(Number(e.target.value));
               onPageChange(1);
@@ -147,6 +149,7 @@ export default function DataTable<T>({
               variant="ghost"
               size="icon"
               title="Export to Excel"
+              aria-label="Export to Excel"
             >
               <FileSpreadsheet className="h-5 w-5 text-green-700" />
             </Button>
@@ -155,7 +158,7 @@ export default function DataTable<T>({
           {onCreate && (
             <Button
               onClick={onCreate}
-              className="bg-cyan-900 hover:bg-cyan-700"
+              className="bg-cyan-900 hover:bg-cyan-800"
             >
               <Plus className="mr-2 h-4 w-4" />
               {createLabel}
@@ -165,7 +168,7 @@ export default function DataTable<T>({
       </div>
 
       {/* Table */}
-      <div className="border rounded-xl overflow-hidden bg-white">
+      <div className="overflow-x-auto rounded-xl border bg-white shadow-sm">
         <Table>
           <TableHeader className="sticky top-0 bg-cyan-200 z-20 shadow-sm">
             <TableRow>
@@ -197,7 +200,10 @@ export default function DataTable<T>({
                   colSpan={totalColumns}
                   className="text-center py-8 text-muted-foreground"
                 >
-                  Loading...
+                    <span className="inline-flex items-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Loading records…
+                    </span>
                 </TableCell>
               </TableRow>
             ) : data.length > 0 ? (
@@ -221,7 +227,11 @@ export default function DataTable<T>({
                   colSpan={totalColumns}
                   className="text-center py-8 text-muted-foreground"
                 >
-                  {emptyMessage}
+                  <span className="inline-flex flex-col items-center gap-2">
+                    <Inbox className="h-8 w-8 text-slate-400" />
+                    <span>{emptyMessage}</span>
+                    {onCreate && <span className="text-xs">Create a record to get started.</span>}
+                  </span>
                 </TableCell>
               </TableRow>
             )}
@@ -230,13 +240,13 @@ export default function DataTable<T>({
       </div>
 
       {/* Pagination */}
-      <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+      <div className="flex flex-col items-center justify-between gap-3 rounded-xl border bg-white p-3 sm:flex-row">
         {showTotalRecords && (
           <div className="text-sm text-muted-foreground">
             Total Records: {totalRecords}
           </div>
         )}
-        <Pagination>
+        <Pagination className="mx-0 w-auto max-w-full overflow-x-auto">
           <PaginationContent>
             <PaginationItem>
               <PaginationPrevious
@@ -266,6 +276,6 @@ export default function DataTable<T>({
           </PaginationContent>
         </Pagination>
       </div>
-    </div>
+    </section>
   );
 }

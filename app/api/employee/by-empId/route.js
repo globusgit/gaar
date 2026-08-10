@@ -12,14 +12,7 @@ export async function GET(req) {
     const { searchParams } = new URL(req.url);
 
     const empId = searchParams.get("empId");
-    const orgId = searchParams.get("orgId");
-
-    if (!orgId) {
-      return NextResponse.json(
-        { data: null },
-        { status: 200 },
-      );
-    }
+    const orgId = token.orgId;
 
     const query = { orgId };
     if (empId) {

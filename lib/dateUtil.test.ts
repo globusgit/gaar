@@ -13,13 +13,13 @@ describe("formatDate", () => {
   });
 
   it("returns empty string for null/undefined", () => {
-    expect(formatDate(null as any)).toBe("");
-    expect(formatDate(undefined as any)).toBe("");
+    expect(formatDate(null as unknown as string)).toBe("");
+    expect(formatDate(undefined as unknown as string)).toBe("");
     expect(formatDate("")).toBe("");
   });
 
   it("handles null and undefined", () => {
-    expect(formatDate(null as any)).toBe("");
-    expect(formatDate(undefined as any)).toBe("");
+    expect(formatDate(null as unknown as string)).toBe("");
+    expect(formatDate(undefined as unknown as string)).toBe("");
   });
 });

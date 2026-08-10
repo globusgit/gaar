@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
+import { useSession, signOut } from "next-auth/react";
 
 import PageHeader from "@/app/_components/PageHeader";
 
@@ -80,6 +80,8 @@ export default function ChangePasswordPage() {
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
+      await signOut({ redirect: false });
+      router.replace("/?passwordChanged=1");
     } catch (err) {
       setError("Something went wrong. Please try again.");
     } finally {

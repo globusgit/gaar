@@ -12,6 +12,11 @@
 
 # testing
 /coverage
+/backups/
+/playwright-report/
+/test-results/
+/storage/
+/public/uploads/
 
 # next.js
 /.next/
@@ -19,6 +24,7 @@
 
 # production
 /build
+/.deployment-id
 
 # misc
 .DS_Store

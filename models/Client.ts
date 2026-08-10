@@ -34,7 +34,7 @@ const ClientSchema = new mongoose.Schema(
     {timestamps: true}
 )
 
-ClientSchema.index({ orgId: 1, clientId: 1 });
+ClientSchema.index({ orgId: 1, clientId: 1 }, { unique: true });
 ClientSchema.index({ orgId: 1, client: 1 });
 
 export default mongoose.models.Client || mongoose.model("Client", ClientSchema)

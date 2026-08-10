@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import connectDB from "@/lib/mongoose";
 import ActivityLog from "@/models/ActivityLog";
 import User from "@/models/User";
-import { requireAuth } from "@/lib/apiGuard";
+import { requireAuth, sanitizeRegex, sanitizeSortField } from "@/lib/apiGuard";
 
 const ALLOWED_ROLES = ["SYS_ADMIN", "ADMIN", "ACCOUNTS"];
 
@@ -38,13 +38,18 @@ export async function GET(req) {
     const page = parseInt(searchParams.get("page")) || 1;
     const limit = parseInt(searchParams.get("limit")) || 50;
     const skip = (page - 1) * limit;
+    const sortField = sanitizeSortField(searchParams.get("sortField") || "date");
+    const sortOrder = searchParams.get("sortOrder") === "asc" ? 1 : -1;
 
     let query = { orgId: token.orgId };
-    if (entity) query.entity = entity;
+    if (entity) {
+      const escapedEntity = sanitizeRegex(entity);
+      query.entity = { $regex: escapedEntity, $options: "i" };
+    }
 
     const [logs, total] = await Promise.all([
       ActivityLog.find(query)
-        .sort({ date: -1 })
+        .sort({ [sortField]: sortOrder })
         .skip(skip)
         .limit(limit),
       ActivityLog.countDocuments(query),

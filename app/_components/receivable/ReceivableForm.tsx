@@ -6,6 +6,9 @@ import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 
+import UserSearch from "@/app/_components/searches/UserSearch";
+import ClientSearch from "@/app/_components/searches/ClientSearch";
+import WorkOrderSearch from "@/app/_components/searches/WorkOrderSearch";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -33,14 +36,11 @@ export default function ReceivableForm({ id }: { id?: string }) {
   const [stateList, setStateList] = useState<any[]>([]);
   const [receivableTypeList, setReceivableTypeList] = useState<any[]>([]);
 
-  const [userResults, setUserResults] = useState<any[]>([]);
-  const [clientResults, setClientResults] = useState<any[]>([]);
-  const [workOrderResults, setWorkOrderResults] = useState<any[]>([]);
-
   const [transactionForm, setTransactionForm] = useState({
     amount: "",
     txnDate: "",
     txnType: "",
+    paidTo: "",
     txnNote: "",
   });
 
@@ -76,6 +76,12 @@ export default function ReceivableForm({ id }: { id?: string }) {
       .then((res) => res.json())
       .then((data) => {
         setForm(data || {});
+        if (data?.paymentFrom) {
+          setTransactionForm((prev) => ({
+            ...prev,
+            paidTo: data.paymentFrom,
+          }));
+        }
       });
 
     fetch(`/api/transaction?entityType=RECEIVABLE&entityId=${id}`)
@@ -85,34 +91,7 @@ export default function ReceivableForm({ id }: { id?: string }) {
       });
   }, [id]);
 
-  const searchUsers = async (query: string) => {
-    if (!query) return setUserResults([]);
-
-    const res = await fetch(`/api/user/search?q=${query}`);
-    const data = await res.json();
-
-    setUserResults(data || []);
-  };
-
-  const searchClients = async (query: string) => {
-    if (!query) return setClientResults([]);
-
-    const res = await fetch(`/api/client/search?q=${query}&orgId=${orgId}`);
-    const data = await res.json();
-
-    setClientResults(data?.data || []);
-  };
-
-  const searchWorkOrders = async (query: string) => {
-    if (!query) return setWorkOrderResults([]);
-
-    const res = await fetch(`/api/work-order/search?q=${query}&orgId=${orgId}`);
-    const data = await res.json();
-
-    setWorkOrderResults(data?.data || []);
-  };
-
-  const handleSubmit = async () => {
+const handleSubmit = async () => {
     const method = id ? "PUT" : "POST";
     const url = id ? `/api/receivable/${id}` : `/api/receivable`;
 
@@ -142,36 +121,63 @@ export default function ReceivableForm({ id }: { id?: string }) {
     const txnAmount = Number(transactionForm.amount || 0);
     const balanceAmount = Number(form.balanceReceivableAmount || 0);
 
+    if (!txnAmount || txnAmount <= 0) {
+      alert("Please enter a valid amount");
+      return;
+    }
+
     if (txnAmount > balanceAmount) {
       alert("Transaction amount cannot exceed Balance Amount");
       return;
     }
 
-    await fetch("/api/transaction", {
-      method: "POST",
-      body: JSON.stringify({
-        ...transactionForm,
-        amount: txnAmount,
-        entityId: id,
-        entityType: "RECEIVABLE",
-      }),
-    });
+    if (!transactionForm.txnDate) {
+      alert("Please select a transaction date");
+      return;
+    }
 
-    const res = await fetch(
-      `/api/transaction?entityType=RECEIVABLE&entityId=${id}`,
-    );
+    if (!transactionForm.paidTo || !transactionForm.paidTo.trim()) {
+      alert("Please enter who paid (Paid To)");
+      return;
+    }
 
-    const data = await res.json();
+    try {
+      const res = await fetch("/api/transaction", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...transactionForm,
+          amount: txnAmount,
+          entityId: id,
+          entityType: "RECEIVABLE",
+        }),
+      });
 
-    setTransactions(data?.data || []);
-    setShowReceiveForm(false);
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.message || "Failed to save transaction");
+      }
 
-    setTransactionForm({
-      amount: "",
-      txnDate: "",
-      txnType: "",
-      txnNote: "",
-    });
+      const txnRes = await fetch(
+        `/api/transaction?entityType=RECEIVABLE&entityId=${id}`,
+      );
+
+      const txnData = await txnRes.json();
+
+      setTransactions(txnData?.data || []);
+      setShowReceiveForm(false);
+
+      setTransactionForm({
+        amount: "",
+        txnDate: "",
+        txnType: "",
+        paidTo: "",
+        txnNote: "",
+      });
+    } catch (err: any) {
+      console.error(err);
+      alert(err.message || "Something went wrong");
+    }
   };
 
   const totalReceived = useMemo(() => {
@@ -185,90 +191,6 @@ export default function ReceivableForm({ id }: { id?: string }) {
     const receivableAmount = Number(form.receivableAmount || 0);
     return receivableAmount - totalReceived;
   }, [transactions, form.receivableAmount]);
-
-  const renderUserSearch = (field: string, label: string) => (
-    <div className="relative">
-      <Label>{label}</Label>
-
-      <Input
-        value={form[field] || ""}
-        placeholder={`Search ${label}`}
-        onChange={(e) => {
-          const value = e.target.value;
-
-          setForm({
-            ...form,
-            [field]: value,
-          });
-
-          searchUsers(value);
-        }}
-      />
-
-      {userResults.length > 0 && (
-        <div className="absolute z-10 bg-white border rounded-md shadow-md w-full max-h-40 overflow-y-auto">
-          {userResults.map((user: any) => (
-            <div
-              key={user._id}
-              className="p-2 hover:bg-gray-100 cursor-pointer"
-              onClick={() => {
-                setForm({
-                  ...form,
-                  [field]: user.name,
-                });
-
-                setUserResults([]);
-              }}
-            >
-              {user.name}
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-
-  const renderClientSearch = (field: string, label: string) => (
-    <div className="relative">
-      <Label>{label}</Label>
-
-      <Input
-        value={form[field] || ""}
-        placeholder={`Search ${label}`}
-        onChange={(e) => {
-          const value = e.target.value;
-
-          setForm({
-            ...form,
-            [field]: value,
-          });
-
-          searchClients(value);
-        }}
-      />
-
-      {clientResults.length > 0 && (
-        <div className="absolute z-10 bg-white border rounded-md shadow-md w-full max-h-40 overflow-y-auto">
-          {clientResults.map((client: any) => (
-            <div
-              key={client._id}
-              className="p-2 hover:bg-gray-100 cursor-pointer"
-              onClick={() => {
-                setForm({
-                  ...form,
-                  [field]: client.client,
-                });
-
-                setClientResults([]);
-              }}
-            >
-              {client.client}
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
 
   const isEditable = !id || balanceAmount > 0;
 
@@ -315,7 +237,16 @@ export default function ReceivableForm({ id }: { id?: string }) {
                   </select>
                 </div>
 
-                <div>{renderClientSearch("paymentFrom", "Payment From")}</div>
+                <div>
+                <Label className="font-bold">Payment From</Label>
+                <ClientSearch
+                  orgId={orgId}
+                  value={form.paymentFrom}
+                  onSelect={(client) =>
+                    setForm({ ...form, paymentFrom: client.client })
+                  }
+                />
+              </div>
 
                 <div className="md:col-span-2">
                   <Label className="font-bold">Description</Label>
@@ -369,7 +300,16 @@ export default function ReceivableForm({ id }: { id?: string }) {
                   </select>
                 </div>
 
-                <div>{renderUserSearch("owner", "Owner")}</div>
+                <div>
+                <Label className="font-bold">Owner</Label>
+                <UserSearch
+                  orgId={orgId}
+                  value={form.owner}
+                  onSelect={(user) =>
+                    setForm({ ...form, owner: user.employeeName })
+                  }
+                />
+              </div>
 
                 <div>
                   <Label className="font-bold">Due Date</Label>
@@ -432,6 +372,7 @@ export default function ReceivableForm({ id }: { id?: string }) {
                       setForm({
                         ...form,
                         vertical: e.target.value,
+                        subVertical: "",
                       })
                     }
                   >
@@ -540,47 +481,22 @@ export default function ReceivableForm({ id }: { id?: string }) {
                   />
                 </div>
 
-                <div className="relative">
-                  <Label className="font-bold">Work Order No</Label>
-
-                  <Input
-                    value={form.woNo || ""}
-                    onChange={(e) => {
-                      const value = e.target.value;
-
-                      setForm({
-                        ...form,
-                        woNo: value,
-                      });
-
-                      searchWorkOrders(value);
-                    }}
-                  />
-
-                  {workOrderResults.length > 0 && (
-                    <div className="absolute z-10 bg-white border rounded-md shadow-md w-full max-h-40 overflow-y-auto">
-                      {workOrderResults.map((wo: any) => (
-                        <div
-                          key={wo._id}
-                          className="p-2 hover:bg-gray-100 cursor-pointer"
-                          onClick={() => {
-                            setForm({
-                              ...form,
-                              woNo: wo.woNo,
-                              woTitle: wo.woTitle,
-                              tenderNo: wo.tenderNo,
-                              tenderName: wo.tenderName,
-                            });
-
-                            setWorkOrderResults([]);
-                          }}
-                        >
-                          {wo.woNo}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                <div>
+                <Label className="font-bold">Work Order No</Label>
+                <WorkOrderSearch
+                  orgId={orgId}
+                  value={form.woNo}
+                  onSelect={(wo) => {
+                    setForm({
+                      ...form,
+                      woNo: wo.woNo,
+                      woTitle: wo.woTitle,
+                      tenderNo: wo.tenderNo || form.tenderNo,
+                      tenderName: wo.tenderDesc || form.tenderName || "",
+                    });
+                  }}
+                />
+              </div>
 
                 <div>
                   <Label className="font-bold">Work Order Title</Label>
@@ -680,9 +596,24 @@ export default function ReceivableForm({ id }: { id?: string }) {
 
                           <option value="PARTIAL">Partial</option>
                         </select>
-                      </div>
+                       </div>
 
-                      <div className="md:col-span-2">
+                       <div>
+                         <Label className="font-bold">Paid To</Label>
+
+                         <Input
+                           value={transactionForm.paidTo}
+                           onChange={(e) =>
+                             setTransactionForm({
+                               ...transactionForm,
+                               paidTo: e.target.value,
+                             })
+                           }
+                           placeholder="Enter payer name"
+                         />
+                       </div>
+
+                       <div className="md:col-span-2">
                         <Label className="font-bold">Transaction Note</Label>
 
                         <Textarea

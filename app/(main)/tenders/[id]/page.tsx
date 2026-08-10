@@ -31,7 +31,9 @@ import { Textarea } from "@/components/ui/textarea";
 
 import { Button } from "@/components/ui/button";
 import AmountToWords from "@/app/_components/AmountToWords";
+import ClientSearch from "@/app/_components/searches/ClientSearch";
 import Notes from "@/app/_components/Notes";
+import OwnerSearch from "@/app/_components/searches/OwnerSearch";
 
 export default function EditTenderPage() {
   const params = useParams();
@@ -54,25 +56,23 @@ export default function EditTenderPage() {
   });
   const [subVerticals, setSubVerticals] = useState<any[]>([]);
 
-  const [departmentSearch, setDepartmentSearch] = useState("");
-
-  const [clientSearch, setClientSearch] = useState("");
-
-  const [departmentResults, setDepartmentResults] = useState([]);
-
-  const [clientResults, setClientResults] = useState([]);
-
   const [editingField, setEditingField] = useState<string | null>(null);
 
   async function fetchTender() {
     try {
       const res = await fetch(`/api/tender/${params.id}`);
 
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || "Failed to fetch tender");
+      }
+
       const data = await res.json();
 
       setFormData(data);
     } catch (error) {
       console.log(error);
+      alert(error instanceof Error ? error.message : "Failed to load tender");
     } finally {
       setLoading(false);
     }
@@ -89,26 +89,6 @@ export default function EditTenderPage() {
       minute: "2-digit",
     });
   };
-
-  useEffect(() => {
-    const loadLists = async () => {
-      const [sl, pl, vl] = await Promise.all([
-        fetchList("Tender Status"),
-        fetchList("Tender Position"),
-        fetchList("VERTICAL"),
-      ]);
-
-      setLists({
-        tenderStatus: sl || [],
-        positions: pl || [],
-        verticals: vl || [],
-      });
-    };
-
-    if (session?.user?.orgId) {
-      loadLists();
-    }
-  }, [session?.user?.orgId]);
 
   const normalizeList = (data: any) => {
     if (!data) return [];
@@ -142,19 +122,6 @@ export default function EditTenderPage() {
     }
   };
 
-  // ---------------- SUB VERTICAL ----------------
-  useEffect(() => {
-    if (!formData.vertical) return setSubVerticals([]);
-
-    fetchList(formData.vertical).then(setSubVerticals);
-  }, [formData.vertical]);
-
-  useEffect(() => {
-    if (formData.country) {
-      fetchStates(formData.country);
-    }
-  }, [formData.country]);
-
   const fetchStates = async (country: string) => {
     try {
       const response = await fetch(
@@ -177,6 +144,39 @@ export default function EditTenderPage() {
       console.log(error);
     }
   };
+
+  useEffect(() => {
+    const loadLists = async () => {
+      const [sl, pl, vl] = await Promise.all([
+        fetchList("Tender Status"),
+        fetchList("Position"),
+        fetchList("VERTICAL"),
+      ]);
+
+      setLists({
+        tenderStatus: sl || [],
+        positions: pl || [],
+        verticals: vl || [],
+      });
+    };
+
+    if (session?.user?.orgId) {
+      loadLists();
+    }
+  }, [session?.user?.orgId]);
+
+  // ---------------- SUB VERTICAL ----------------
+  useEffect(() => {
+    if (!formData.vertical) return setSubVerticals([]);
+
+    fetchList(formData.vertical).then(setSubVerticals);
+  }, [formData.vertical]);
+
+  useEffect(() => {
+    if (formData.country) {
+      fetchStates(formData.country);
+    }
+  }, [formData.country]);
 
   useEffect(() => {
     fetchCountries();
@@ -242,12 +242,14 @@ export default function EditTenderPage() {
       });
 
       if (!res.ok) {
-        throw new Error("Failed to update");
+        const data = await res.json();
+        throw new Error(data.message || "Failed to update tender");
       }
 
-      router.push("/tenders");
+      await router.push("/tenders");
     } catch (error) {
-      console.log(error);
+      console.error("Tender update error:", error);
+      alert(error instanceof Error ? error.message : "Failed to update tender");
     }
   }
   const updatePaymentAmount = async (field: string, value: string) => {
@@ -281,10 +283,6 @@ export default function EditTenderPage() {
     return <div>Loading...</div>;
   }
 
-  const isEditable = (paymentDate?: string) => {
-    return !paymentDate;
-  };
-
   return (
     <div className="space-y-4 px-0 md:px-4 lg:px-8">
       <PageHeader title="Edit Tender" />
@@ -315,10 +313,12 @@ export default function EditTenderPage() {
                   </div>
                   <div className="space-y-2">
                     <Label>Owner</Label>
-                    <Input
-                      name="owner"
+                    <OwnerSearch
+                      orgId={session?.user?.orgId ?? ""}
                       value={formData.owner || ""}
-                      onChange={handleChange}
+                      onSelect={(emp) =>
+                        setFormData((prev: any) => ({ ...prev, owner: emp.name }))
+                      }
                     />
                   </div>
                   <div className="space-y-2">
@@ -459,86 +459,32 @@ export default function EditTenderPage() {
                     </select>
                   </div>
                   {/* TENDERING DEPARTMENT */}
-                  <div className="space-y-2 relative">
+                  <div className="space-y-2">
                     <Label>Tendering Department</Label>
-
-                    <Input
-                      placeholder="Search by name or id"
-                      value={departmentSearch || formData.tenderingDepartment}
-                      onChange={(e) => {
-                        setDepartmentSearch(e.target.value);
-
+                    <ClientSearch
+                      orgId={session?.user?.orgId ?? ""}
+                      value={formData.tenderingDepartment ?? ""}
+                      onSelect={(client: any) =>
                         setFormData((prev: any) => ({
                           ...prev,
-                          tenderingDepartment: e.target.value,
-                        }));
-                      }}
+                          tenderingDepartment: client.client,
+                        }))
+                      }
                     />
-
-                    {!!departmentResults.length && (
-                      <div className="absolute top-full left-0 w-full rounded-md border bg-white shadow-md z-20 max-h-60 overflow-auto">
-                        {departmentResults.map((item: any) => (
-                          <button
-                            type="button"
-                            key={item._id}
-                            className="w-full text-left px-3 py-2 hover:bg-muted"
-                            onClick={() => {
-                              setFormData((prev: any) => ({
-                                ...prev,
-                                tenderingDepartment: item.client,
-                              }));
-
-                              setDepartmentSearch("");
-
-                              setDepartmentResults([]);
-                            }}
-                          >
-                            {item.client}
-                          </button>
-                        ))}
-                      </div>
-                    )}
                   </div>
                   {/* Client */}
-                  <div className="space-y-2 relative">
+                  <div className="space-y-2">
                     <Label>Client</Label>
-
-                    <Input
-                      placeholder="Search by name or id"
-                      value={clientSearch || formData.client}
-                      onChange={(e) => {
-                        setClientSearch(e.target.value);
-
+                    <ClientSearch
+                      orgId={session?.user?.orgId ?? ""}
+                      value={formData.client ?? ""}
+                      onSelect={(client: any) =>
                         setFormData((prev: any) => ({
                           ...prev,
-                          client: e.target.value,
-                        }));
-                      }}
+                          client: client.client,
+                        }))
+                      }
                     />
-
-                    {!!clientResults.length && (
-                      <div className="absolute top-full left-0 w-full rounded-md border bg-white shadow-md z-20 max-h-60 overflow-auto">
-                        {clientResults.map((item: any) => (
-                          <button
-                            type="button"
-                            key={item._id}
-                            className="w-full text-left px-3 py-2 hover:bg-muted"
-                            onClick={() => {
-                              setFormData((prev: any) => ({
-                                ...prev,
-                                client: item.client,
-                              }));
-
-                              setClientSearch("");
-
-                              setClientResults([]);
-                            }}
-                          >
-                            {item.client}
-                          </button>
-                        ))}
-                      </div>
-                    )}
                   </div>
                   <div>
                     <label>Country *</label>

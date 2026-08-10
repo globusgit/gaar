@@ -16,7 +16,7 @@ describe("validateBody", () => {
 
     const result = await validator(mockReq);
     expect(result.success).toBe(true);
-    expect((result as any).data.name).toBe("John");
+    expect((result as unknown as { data: { name: string } }).data.name).toBe("John");
   });
 
   it("returns error for invalid data", async () => {
@@ -32,8 +32,8 @@ describe("validateBody", () => {
 
     const result = await validator(mockReq);
     expect(result.success).toBe(false);
-    expect((result as any).error).toBeInstanceOf(Response);
-    expect((result as any).error.status).toBe(400);
+    expect((result as unknown as { error: Response }).error).toBeInstanceOf(Response);
+    expect((result as unknown as { error: { status: number } }).error.status).toBe(400);
   });
 });
 
@@ -52,8 +52,8 @@ describe("validateQuery", () => {
 
     const result = validator(params);
     expect(result.success).toBe(true);
-    expect((result as any).data.page).toBe(1);
-    expect((result as any).data.limit).toBe(10);
+    expect((result as unknown as { data: { page: number; limit: number } }).data.page).toBe(1);
+    expect((result as unknown as { data: { page: number; limit: number } }).data.limit).toBe(10);
   });
 
   it("returns error for invalid query params", () => {
@@ -69,7 +69,7 @@ describe("validateQuery", () => {
     const result = validator(params);
     // z.coerce.number() fails on "not-a-number" because NaN is not valid
     expect(result.success).toBe(false);
-    expect((result as any).error).toBeInstanceOf(Response);
-    expect((result as any).error.status).toBe(400);
+    expect((result as unknown as { error: Response }).error).toBeInstanceOf(Response);
+    expect((result as unknown as { error: { status: number } }).error.status).toBe(400);
   });
 });

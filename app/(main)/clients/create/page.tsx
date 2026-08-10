@@ -28,7 +28,6 @@ export default function CreateClientPage() {
     phone: "",
     gstNo: "",
     state: "",
-    orgId: orgId,
   });
 
   const normalizeList = (data: unknown) => {

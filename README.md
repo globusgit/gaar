@@ -1,4 +1,4 @@
-# GAAR — Government Accounts and Audit Reporting
+# GAAR — GlobusIT Accounts and Audit Reporting
 
 **GAAR** is a multi-tenant ERP-style web application for managing tenders, work orders, payments, receivables, employees, clients, and fund requests. It is built for Indian organizations with role-based access control (RBAC) and supports multiple tenants (organizations) within a single deployment.
 

@@ -59,7 +59,7 @@ const PaymentInfoSchema = new mongoose.Schema(
     },
     approvedBy: {
       type: String,
-      required: true,
+      required: false
     },
     approvedDate: {
       type: Date,

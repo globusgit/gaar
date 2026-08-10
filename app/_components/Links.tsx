@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   LayoutDashboard,
   ReceiptText,
@@ -14,6 +14,10 @@ import {
   Briefcase,
   Building2,
   Settings,
+  ListChecks,
+  Settings2,
+  Shield,
+  Sparkles,
 } from "lucide-react";
 
 export const menuItems = [
@@ -27,16 +31,22 @@ export const menuItems = [
   { icon: FileText, label: "Tenders", route: "/tenders", module: "tenders" },
   { icon: Building2, label: "Organizations", route: "/organizations", module: "organizations" },
   { icon: Users, label: "Users", route: "/users", module: "users" },
+  { icon: Sparkles, label: "AI Assistant", route: "/ai", module: "ai" },
   { icon: Settings, label: "Settings", route: "/settings", module: "settings" },
+  { icon: ListChecks, label: "Master Lists", route: "/settings/master-lists", module: "master-lists" },
+  { icon: Settings2, label: "System Settings", route: "/settings/system", module: "system-settings" },
+  { icon: Shield, label: "Audit Logs", route: "/settings/audit-logs", module: "audit-logs" },
 ];
 
 const Links = () => {
-  const { data: session } = useSession();
+  const { data: session, update: updateSession } = useSession();
   const pathname = usePathname();
   const router = useRouter();
   const role = session?.user?.role;
   const jwtModules = session?.user?.modules || [];
+  const jwtModulesKey = [...jwtModules].sort().join("|");
   const [userModules, setUserModules] = useState<string[]>(jwtModules);
+  const requestedSessionSignature = useRef<string | null>(null);
 
   useEffect(() => {
     if (!session?.user?.orgId) return;
@@ -49,8 +59,20 @@ const Links = () => {
         if (!res.ok) return;
         const data = await res.json();
         const modules = data?.data?.modules || [];
-        if (isMounted && modules.length > 0) {
+        if (isMounted) {
           setUserModules(modules);
+
+          const databaseSignature = [...modules].sort().join("|");
+          const userId = session.user.id || session.user.username || "current";
+          const refreshSignature = `${userId}:${databaseSignature}`;
+
+          if (
+            databaseSignature !== jwtModulesKey &&
+            requestedSessionSignature.current !== refreshSignature
+          ) {
+            requestedSessionSignature.current = refreshSignature;
+            await updateSession();
+          }
         }
       } catch (err) {
         console.error("Failed to fetch user modules:", err);
@@ -62,16 +84,16 @@ const Links = () => {
     return () => {
       isMounted = false;
     };
-  }, [session?.user?.orgId]);
+  }, [jwtModulesKey, session?.user?.id, session?.user?.orgId, session?.user?.username, updateSession]);
+
+  const isFullAccess = session?.user?.role === "SYS_ADMIN";
 
   useEffect(() => {
     if (!session?.user) return;
 
     const allowedRoutes = menuItems
       .filter((item) => {
-        if (role === "SYS_ADMIN") return true;
-        if (item.route === "/organizations" && role !== "SYS_ADMIN") return false;
-        if (item.route === "/users" && !["SYS_ADMIN", "ADMIN", "ORG_USER"].includes(role || "")) return false;
+        if (isFullAccess) return true;
         if (item.module && !userModules.includes(item.module)) return false;
         return true;
       })
@@ -84,20 +106,12 @@ const Links = () => {
     if (!isAllowed && pathname !== "/" && !pathname.startsWith("/api")) {
       router.replace("/dashboard");
     }
-  }, [session?.user, role, userModules, pathname, router]);
+  }, [session?.user, role, userModules, pathname, router, isFullAccess]);
 
   const filteredMenu = menuItems.filter((item) => {
     if (!role) return false;
 
-    if (role === "SYS_ADMIN") return true;
-
-    if (item.route === "/organizations" && role !== "SYS_ADMIN") {
-      return false;
-    }
-
-    if (item.route === "/users" && !["SYS_ADMIN", "ADMIN", "ORG_USER"].includes(role)) {
-      return false;
-    }
+    if (isFullAccess) return true;
 
     if (item.module && !userModules.includes(item.module)) {
       return false;
@@ -115,14 +129,14 @@ const Links = () => {
           <div key={item.label} className="flex flex-col gap-4 ml-1">
             <Link
               href={item.route}
-              className={`cursor-pointer flex items-center justify-center lg:justify-start gap-4 py-4 px-3 transition-colors ${
+              className={`flex cursor-pointer items-center justify-start gap-4 px-3 py-4 transition-colors ${
                 isActive
                   ? "bg-cyan-100 text-black font-semibold rounded-md"
                   : "text-white hover:bg-cyan-100 hover:text-black rounded-md"
               }`}
             >
-              <item.icon className="h-5 w-5" />
-              <span className="hidden lg:block">{item.label}</span>
+              <item.icon className="h-5 w-5 shrink-0" />
+              <span className="block whitespace-nowrap">{item.label}</span>
             </Link>
           </div>
         );

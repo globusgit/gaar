@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import connectDB from "@/lib/mongoose";
 import Organization from "@/models/Organization";
-import { requireAuth, requireOrgScope, sanitizeRegex, sanitizeSortField } from "@/lib/apiGuard";
+import { requireAuth } from "@/lib/apiGuard";
 
 export async function GET(req) {
   const token = await requireAuth(req);
@@ -10,7 +10,12 @@ export async function GET(req) {
   try {
     await connectDB();
 
-    const totalOrganizations = await Organization.countDocuments();
+    let query = {};
+    if (token.role !== "SYS_ADMIN") {
+      query.orgId = token.orgId;
+    }
+
+    const totalOrganizations = await Organization.countDocuments(query);
 
     return NextResponse.json(
       {

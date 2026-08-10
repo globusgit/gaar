@@ -192,7 +192,7 @@ export default function WorkOrdersPage() {
                   <TableCell>{row.woNo}</TableCell>
                   <TableCell>{row.woTitle}</TableCell>
                   <TableCell>{row.client}</TableCell>
-                  <TableCell>{row.woValue}</TableCell>
+                  <TableCell>{row.tenderNo}</TableCell>
                   <TableCell>
                     {row.woDate
                       ? new Date(row.woDate).toLocaleDateString()

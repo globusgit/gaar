@@ -21,10 +21,10 @@ export async function POST(req) {
     client?.slice(0, 4).toUpperCase().replace(/[^A-Z]/g, "") || "CLNT";
   try {
     await connectDB();
-    const recordCount = await Client.countDocuments({ orgId });
+    const uniqueSuffix = Date.now().toString(36).toUpperCase();
     const clientToCreate = new Client({
       client,
-      clientId: clientShort + recordCount,
+      clientId: clientShort + uniqueSuffix,
       website,
       emailId,
       phone,
@@ -70,10 +70,25 @@ export async function GET(req) {
     const limit = parseInt(searchParams.get("limit")) || 20;
     const skip = (page - 1) * limit;
     const orgId = token.orgId;
+    const search = searchParams.get("search") || "";
+
+    const query = { orgId };
+
+    if (search) {
+      const escapedSearch = sanitizeRegex(search);
+      query.$or = [
+        { client: { $regex: escapedSearch, $options: "i" } },
+        { clientId: { $regex: escapedSearch, $options: "i" } },
+        { website: { $regex: escapedSearch, $options: "i" } },
+        { phone: { $regex: escapedSearch, $options: "i" } },
+        { emailId: { $regex: escapedSearch, $options: "i" } },
+        { state: { $regex: escapedSearch, $options: "i" } },
+      ];
+    }
 
     const [clients, total] = await Promise.all([
-      Client.find({ orgId }).skip(skip).limit(limit),
-      Client.countDocuments({ orgId }),
+      Client.find(query).skip(skip).limit(limit),
+      Client.countDocuments(query),
     ]);
     return NextResponse.json(
       {
@@ -112,9 +127,13 @@ export async function PATCH(req) {
       }
     }
 
-    const updated = await Client.findByIdAndUpdate(id, updateData, {
-      new: true,
+    const updated = await Client.findOneAndUpdate({ _id: id, orgId: token.orgId }, updateData, {
+      returnDocument: "after",
     });
+
+    if (!updated) {
+      return NextResponse.json({ message: "Client not found" }, { status: 404 });
+    }
 
     if (updated) {
       await logActivity({

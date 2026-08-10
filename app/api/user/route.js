@@ -5,7 +5,10 @@ import User from '@/models/User';
 import bcrypt from "bcryptjs";
 import { logActivity } from "@/lib/activityLog";
 import { notifyOrg } from "@/lib/notification";
-import { requireAuth, requireOrgScope, sanitizeRegex, sanitizeSortField } from "@/lib/apiGuard";
+import { requireAuth, hasModuleAccess, canAssignRole, sanitizeRegex, sanitizeSortField } from "@/lib/apiGuard";
+import { normalizeUserModules } from "@/lib/userModules";
+
+const ASSIGNABLE_ROLES = new Set(["ADMIN", "ORG_USER", "USER", "MANAGER", "ACCOUNTANT", "ACCOUNTS"]);
 
 export async function GET(req){
   const token = await requireAuth(req);
@@ -19,10 +22,23 @@ export async function GET(req){
     const limit = parseInt(searchParams.get('limit')) || 20;
     const skip = (page-1) * limit;
     const orgId = token.orgId;
-                 
+    const search = sanitizeRegex(searchParams.get('search') || '');
+    const sortField = sanitizeSortField(searchParams.get('sortField') || 'createdAt');
+    const sortOrder = searchParams.get('sortOrder') === 'asc' ? 1 : -1;
+
+    let query = {orgId};
+    if (search) {
+      query.$or = [
+        { username: { $regex: search, $options: 'i' } },
+        { employeeName: { $regex: search, $options: 'i' } },
+        { email: { $regex: search, $options: 'i' } },
+        { phone: { $regex: search, $options: 'i' } },
+      ];
+    }
+
     const [users, total] = await Promise.all([
-      User.find({orgId}).select("-password").skip(skip).limit(limit),
-      User.countDocuments({orgId})
+      User.find(query).select("-password").sort({ [sortField]: sortOrder }).skip(skip).limit(limit),
+      User.countDocuments(query)
     ]);
 
     return NextResponse.json({
@@ -43,19 +59,64 @@ export async function POST(req){
   const token = await requireAuth(req);
   if (token instanceof Response) return token;
 
+  if (!hasModuleAccess(token, "users")) {
+    return NextResponse.json({ message: "Forbidden: Users module required" }, { status: 403 });
+  }
+
   try{
     await connectDB();
     const body = await req.json();
     const orgId = token.orgId;
-    const hashedPws = await bcrypt.hash(process.env.DEFAULT_EMP_PASSWORD || "emp@1", 10);
+
+    if (!body.role || !ASSIGNABLE_ROLES.has(body.role)) {
+      return NextResponse.json(
+        { message: "A valid role is required" },
+        { status: 400 }
+      );
+    }
+
+    if (!canAssignRole(token, body.role)) {
+      return NextResponse.json(
+        { message: "You cannot assign a role above your own authority" },
+        { status: 403 },
+      );
+    }
+
+    const username = body.phone || body.username;
+    if (!username) {
+      return NextResponse.json(
+        { message: "Username or phone is required" },
+        { status: 400 }
+      );
+    }
+
+    const modules = normalizeUserModules(body.modules ?? []);
+    if (!modules) {
+      return NextResponse.json(
+        { message: "One or more selected modules are invalid" },
+        { status: 400 },
+      );
+    }
+
+    const defaultPassword = process.env.DEFAULT_EMP_PASSWORD;
+    if (!defaultPassword) {
+      return NextResponse.json(
+        { message: "Server misconfiguration: DEFAULT_EMP_PASSWORD is not set" },
+        { status: 500 },
+      );
+    }
+
+    const hashedPws = await bcrypt.hash(defaultPassword, 10);
     
     const newUser = new User({
-      username: body.phone || body.username,
+      username: username,
       password: hashedPws,
+      employeeName: body.employeeName || body.username || "User",
       status: "Active",
       role: body.role,
       isFirstLogin: true,
       orgId: orgId,
+      modules,
     });
     const createdUser = await User.create(newUser);
 

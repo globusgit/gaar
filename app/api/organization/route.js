@@ -1,17 +1,36 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import User from "@/models/User";
 import Organization from "@/models/Organization";
 import connectDB from "@/lib/mongoose";
 import { logActivity } from "@/lib/activityLog";
 import { notifyOrg } from "@/lib/notification";
-import { requireAuth, requireOrgScope, sanitizeRegex, sanitizeSortField } from "@/lib/apiGuard";
+import { requireAuth, sanitizeRegex } from "@/lib/apiGuard";
 import bcrypt from "bcryptjs";
+import { seedSystemLists } from "@/lib/seedSystemLists";
+
+const ALL_MODULES = [
+  "dashboard",
+  "employees",
+  "clients",
+  "work-orders",
+  "tenders",
+  "fund-request",
+  "payments",
+  "receivables",
+  "organizations",
+  "users",
+  "ai",
+  "settings",
+  "master-lists",
+  "system-settings",
+  "audit-logs",
+];
 
 export async function POST(req) {
   const token = await requireAuth(req);
   if (token instanceof Response) return token;
 
-  if (token.role !== "SYS_ADMIN" && token.role !== "ADMIN") {
+  if (token.role !== "SYS_ADMIN") {
     return NextResponse.json({ message: "Forbidden" }, { status: 403 });
   }
 
@@ -58,15 +77,32 @@ export async function POST(req) {
     );
   }
 
+  if (!/^\d{10}$/.test(String(phone))) {
+    return NextResponse.json(
+      { message: "Phone must contain exactly 10 digits" },
+      { status: 400 },
+    );
+  }
+
+  const defaultPassword = process.env.DEFAULT_ORG_USER_PASSWORD;
+  if (!defaultPassword) {
+    return NextResponse.json(
+      { message: "Server misconfiguration: DEFAULT_ORG_USER_PASSWORD is not set" },
+      { status: 500 },
+    );
+  }
+
   try {
     await connectDB();
     const existingOrganizationEmail = await Organization.findOne({ email });
     const existingOrganizationPhone = await Organization.findOne({ phone });
     const existingOrganization = await Organization.findOne({ orgName });
+    const existingUsername = await User.exists({ username: phone });
     if (
       existingOrganization ||
       existingOrganizationPhone ||
-      existingOrganizationEmail
+      existingOrganizationEmail ||
+      existingUsername
     ) {
       return NextResponse.json(
         {
@@ -77,18 +113,17 @@ export async function POST(req) {
       );
     }
 
-    const docCount = (await Organization.countDocuments()) + 1;
-    const orgId = "ORG" + String(docCount).padStart(3, "0");
+    const orgId = "ORG" + Date.now().toString().slice(-6);
     const status = "Active";
     const regDate = new Date();
     const newOrganization = new Organization({
       orgName,
       orgId,
-      contactName,
-      contactDesignation,
+      contactName: contactName?.trim() || "",
+      contactDesignation: contactDesignation?.trim() || "",
       phone,
       email,
-      website,
+      website: website?.trim() || undefined,
       address,
       city,
       state,
@@ -106,25 +141,20 @@ export async function POST(req) {
     const createdOrg = await Organization.create(newOrganization);
 
     if (createdOrg) {
-      const defaultPassword = process.env.DEFAULT_ORG_USER_PASSWORD;
-      if (!defaultPassword) {
-        return NextResponse.json(
-          { message: "Server misconfiguration: DEFAULT_ORG_USER_PASSWORD is not set" },
-          { status: 500 },
-        );
-      }
       const hashedPassword = await bcrypt.hash(defaultPassword, 10);
-      const newOrgUser = new User({
-        username: phone,
-        password: hashedPassword,
-        employeeName: contactName,
-        status: "Active",
-        role: "ORG_USER",
-        isFirstLogin: true,
-        orgId: createdOrg.orgId,
-      });
+       const newOrgUser = new User({
+         username: phone,
+         password: hashedPassword,
+         employeeName: contactName,
+         status: "Active",
+         role: "ADMIN",
+         isFirstLogin: true,
+         orgId: createdOrg.orgId,
+         modules: ALL_MODULES,
+       });
       const newOrgUserCreated = await User.create(newOrgUser);
       if (newOrgUserCreated) {
+        await seedSystemLists(createdOrg.orgId);
         await logActivity({
           activity: "Organization Created",
           description: `Organization ${createdOrg.orgName} was created`,
@@ -158,9 +188,22 @@ export async function POST(req) {
         { status: 400 },
       );
     }
-  } catch {
+  } catch (error) {
+    console.error("Organization creation error:", error);
+    if (error?.code === 11000) {
+      return NextResponse.json(
+        { message: "Organization name, phone, email, website, or login already exists" },
+        { status: 409 },
+      );
+    }
+    if (error?.name === "ValidationError") {
+      return NextResponse.json(
+        { message: Object.values(error.errors).map((item) => item.message).join(", ") },
+        { status: 400 },
+      );
+    }
     return NextResponse.json(
-      { message: "Something went wrong" },
+      { message: "Unable to create organization. Please verify the submitted details." },
       { status: 500 },
     );
   }
@@ -180,7 +223,7 @@ export async function GET(req) {
     const skip = (page - 1) * limit;
 
     const query = {};
-    if (token.role !== "SYS_ADMIN" && token.role !== "ADMIN") {
+    if (token.role !== "SYS_ADMIN") {
       query.orgId = token.orgId;
     } else if (searchParams.get("orgId")) {
       query.orgId = searchParams.get("orgId");

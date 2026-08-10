@@ -9,15 +9,7 @@ export async function GET(req) {
 
   try {
     await connectDB();
-    const { searchParams } = new URL(req.url);
-    const orgId = searchParams.get("orgId");
-
-    if (!orgId) {
-      return NextResponse.json(
-        { error: "orgId is required" },
-        { status: 400 }
-      );
-    }
+    const orgId = token.orgId;
 
     const totalEmployees = await Employee.countDocuments({ orgId });
     const totalManagers = await Employee.countDocuments({ orgId, isManager: true });

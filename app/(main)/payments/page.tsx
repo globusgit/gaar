@@ -34,12 +34,14 @@ export default function PaymentList() {
   const [total, setTotal] = useState(0);
   const [limit, setLimit] = useState(10);
   const [totalRecords, setTotalRecords] = useState(0);
+  const [loading, setLoading] = useState(false);
 
   const [sortField, setSortField] = useState("createdAt");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
   const fetchData = async () => {
     try {
+      setLoading(true);
       const orgId = session?.user?.orgId;
       if (!orgId) return;
 
@@ -56,6 +58,8 @@ export default function PaymentList() {
     } catch (err) {
       console.error(err);
       setData([]);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -176,7 +180,7 @@ export default function PaymentList() {
   return (
     <DataTable
       data={data}
-      loading={false}
+      loading={loading}
       columns={columns}
       page={page}
       totalPages={totalPages}
@@ -187,8 +191,6 @@ export default function PaymentList() {
       searchValue={search}
       onSearchChange={setSearch}
       searchPlaceholder="Search (min 3 chars)..."
-      onCreate={() => router.push("/payments/create")}
-      createLabel="Payment"
       onExport={exportExcel}
       sortField={sortField}
       sortOrder={sortOrder}

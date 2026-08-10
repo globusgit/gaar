@@ -15,10 +15,6 @@ export async function GET(req) {
 
     const q = searchParams.get("q") || "";
 
-    if (!q) {
-      return NextResponse.json({ data: [] });
-    }
-
     const escapedQ = sanitizeRegex(q);
     const regex = new RegExp(escapedQ, "i");
 

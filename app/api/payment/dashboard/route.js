@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import connectDB from "@/lib/mongoose";
 import PaymentInfo from "@/models/PaymentInfo";
+import Employee from "@/models/Employee";
 import { requireAuth } from "@/lib/apiGuard";
 
 export async function GET(req, res) {
@@ -12,20 +13,38 @@ export async function GET(req, res) {
 
     const { searchParams } = new URL(req.url);
 
+    let matchStage = { orgId: token.orgId };
+
+    if (token.role !== "ADMIN" && token.role !== "SYS_ADMIN") {
+      const employee = await Employee.findOne({
+        $or: [
+          { empId: token.username },
+          { phone: token.username },
+        ],
+        orgId: token.orgId,
+      }).lean();
+
+      if (employee) {
+        matchStage.requestedById = employee._id;
+      } else {
+        matchStage.requestedById = null;
+      }
+    }
+
     const totalPaymentAmount = await PaymentInfo.aggregate([
-      { $match: { orgId: token.orgId } },
+      { $match: matchStage },
       { $group: { _id: null, total: { $sum: "$requestAmount" } } },
     ]);
     const totalPaidAmount = await PaymentInfo.aggregate([
-      { $match: { orgId: token.orgId } },
+      { $match: matchStage },
       { $group: { _id: null, total: { $sum: "$paidAmount" } } },
     ]);
     const totalBalancePaymentAmount = await PaymentInfo.aggregate([
-      { $match: { orgId: token.orgId } },
+      { $match: matchStage },
       { $group: { _id: null, total: { $sum: "$balanceAmount" } } },
     ]);
     const totalPastDueDatePayments = await PaymentInfo.countDocuments({
-      orgId: token.orgId,
+      ...matchStage,
       dueDate: { $lt: new Date() },
       balanceAmount: { $gt: 0 },
     });

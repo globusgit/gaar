@@ -60,7 +60,7 @@ export default function ReceivablesPage() {
     const headers = ["Description", "Amount", "Vertical", "Status", "Due Date"];
     const rows = data.map((item) => [
       item.description ?? "",
-      item.amount ?? "",
+      item.receivableAmount ?? 0,
       item.vertical ?? "",
       item.status ?? "",
       item.dueDate ? item.dueDate.substring(0, 10) : "",
@@ -187,7 +187,7 @@ export default function ReceivablesPage() {
             ) : (
               <TableRow>
                 <TableCell
-                  colSpan={7}
+                  colSpan={8}
                   className="text-center py-6 text-gray-500"
                 >
                   No receivables found

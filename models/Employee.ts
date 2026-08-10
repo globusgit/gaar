@@ -50,7 +50,8 @@ const EmployeeSchema = new mongoose.Schema(
     {timestamps: true}
 )
 
-EmployeeSchema.index({ orgId: 1, empId: 1 });
+EmployeeSchema.index({ orgId: 1, empId: 1 }, { unique: true });
+EmployeeSchema.index({ orgId: 1, phone: 1 }, { unique: true });
 EmployeeSchema.index({ orgId: 1, name: 1 });
 
 export default mongoose.models.Employee || mongoose.model("Employee", EmployeeSchema)

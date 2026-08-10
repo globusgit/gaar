@@ -18,12 +18,16 @@ export async function GET(req) {
     });
     const totalPendingWorkOrders = await WorkOrder.countDocuments({
       orgId: orgId,
-      status: "Pending",
+      status: { $in: ["Live", "Pending"] },
     });
     const totalOverdueWorkOrders = await WorkOrder.countDocuments({
       orgId: orgId,
       dueDate: { $lt: new Date() },
       status: { $ne: "Completed" },
+    });
+    const totalSuspendedWorkOrders = await WorkOrder.countDocuments({
+      orgId: orgId,
+      status: "Suspended",
     });
     return NextResponse.json(
       {
@@ -31,8 +35,9 @@ export async function GET(req) {
         totalCompletedWorkOrders,
         totalPendingWorkOrders,
         totalOverdueWorkOrders,
+        totalSuspendedWorkOrders,
       },
-      { status: 200 },
+      { status: 200 }
     );
   } catch (error) {
     return NextResponse.json(

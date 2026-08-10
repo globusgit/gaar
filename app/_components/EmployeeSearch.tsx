@@ -1,39 +1,58 @@
-"use client"
+"use client";
 
-import { Label } from "@/components/ui/label"
-import { useEffect, useState } from "react"
-import { cn } from "@/lib/utils"
+import { useEffect, useState } from "react";
+import { Check, ChevronsUpDown } from "lucide-react";
+
+import { cn } from "@/lib/utils";
+
+import { Button } from "@/components/ui/button";
+
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+
+import { Label } from "@/components/ui/label";
 
 type Props = {
-  placeholder?: string
-  fetchUrl: (query: string) => string
-  onSelect: (item: any) => void
-  displayField?: string
-  error?: boolean
-}
+  placeholder?: string;
+  value?: string;
+  fetchUrl: (query: string) => string;
+  onSelect: (item: any) => void;
+  displayField?: string;
+  error?: boolean;
+};
 
 export default function EmployeeSearch({
   placeholder = "Search...",
+  value,
   fetchUrl,
   onSelect,
   displayField = "name",
   error,
 }: Props) {
-  const [query, setQuery] = useState("")
-  const [list, setList] = useState<any[]>([])
-  const [activeIndex, setActiveIndex] = useState(-1)
-  const [show, setShow] = useState(false)
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [list, setList] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
 
-  // Debounce Search
   useEffect(() => {
-    const delay = setTimeout(async () => {
-      if (query.length < 2) {
-        setList([]);
-        return;
-      }
+    if (!open) return;
 
+    const delay = setTimeout(async () => {
       try {
-        const res = await fetch(fetchUrl(query));
+        setLoading(true);
+        const res = await fetch(fetchUrl(search));
 
         if (!res.ok) {
           setList([]);
@@ -49,86 +68,69 @@ export default function EmployeeSearch({
             : [];
 
         setList(result);
-        setShow(true);
+        setOpen(true);
       } catch {
         setList([]);
+      } finally {
+        setLoading(false);
       }
     }, 300);
 
     return () => clearTimeout(delay);
-  }, [query, fetchUrl]);
-
-  // Keyboard Navigation
-  const handleKeyDown = (e: any) => {
-    if (!show) return
-
-    if (e.key === "ArrowDown") {
-      setActiveIndex((prev) =>
-        prev < list.length - 1 ? prev + 1 : prev
-      )
-    } else if (e.key === "ArrowUp") {
-      setActiveIndex((prev) => (prev > 0 ? prev - 1 : 0))
-    } else if (e.key === "Enter" && activeIndex >= 0) {
-      handleSelect(list[activeIndex])
-    }
-  }
-
-  const handleSelect = (item: any) => {
-    onSelect(item)
-    setQuery(item[displayField])
-    setShow(false)
-  }
-
-  //Highlight Match
-  const highlightText = (text: string) => {
-    if (!query) return text
-
-    const parts = text.split(new RegExp(`(${query})`, "gi"))
-
-    return parts.map((part, i) =>
-      part.toLowerCase() === query.toLowerCase() ? (
-        <span key={i} className="bg-yellow-200">
-          {part}
-        </span>
-      ) : (
-        part
-      )
-    )
-  }
+  }, [search, fetchUrl, open]);
 
   return (
-    <div className="relative">
-      <input
-        className={cn(
-          "border p-2 rounded-xl w-full",
-          error && "border-red-500 focus-visible:ring-red-500"
-        )}
-        placeholder={placeholder}
-        value={query}
-        onChange={(e) => {
-          setQuery(e.target.value)
-          setActiveIndex(-1)
-        }}
-        onKeyDown={handleKeyDown}
-      />
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          className="w-full justify-between"
+        >
+          {value || placeholder}
+          <ChevronsUpDown className="h-4 w-4 opacity-50" />
+        </Button>
+      </PopoverTrigger>
 
-      {show && list.length > 0 && (
-        <div className="absolute bg-white border w-full mt-1 rounded-xl shadow max-h-48 overflow-y-auto z-10">
-          {list.map((item, index) => (
-            <div
-              key={item._id}
-              className={`p-2 cursor-pointer ${
-                index === activeIndex
-                  ? "bg-blue-100"
-                  : "hover:bg-gray-100"
-              }`}
-              onClick={() => handleSelect(item)}
-            >
-              {highlightText(item[displayField])}
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  )
+      <PopoverContent className="w-[calc(100vw-2rem)] max-w-[400px] p-0" align="start">
+        <Command shouldFilter={false}>
+          <CommandInput
+            placeholder={placeholder}
+            value={search}
+            onValueChange={setSearch}
+          />
+
+          <CommandList>
+            {loading && (
+              <div className="p-4 text-sm text-muted-foreground">Searching...</div>
+            )}
+
+            <CommandEmpty>No results found</CommandEmpty>
+
+            <CommandGroup>
+              {list.map((item: any) => (
+                <CommandItem
+                  key={item._id}
+                  value={item[displayField]}
+                  onSelect={() => {
+                    onSelect(item);
+                    setOpen(false);
+                    setSearch("");
+                  }}
+                >
+                  <Check
+                    className={cn(
+                      "mr-2 h-4 w-4",
+                      search === item[displayField] ? "opacity-100" : "opacity-0",
+                    )}
+                  />
+                  {item[displayField]}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
 }

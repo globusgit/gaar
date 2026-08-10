@@ -4,6 +4,8 @@ import SystemList from "@/models/SystemList";
 import User from "@/models/User";
 import Organization from "@/models/Organization";
 import bcrypt from "bcryptjs";
+import { seedSystemLists } from "@/lib/seedSystemLists";
+import { requireAuth } from "@/lib/apiGuard";
 
 const REQUIRED_ENV_VARS = [
   "MONGODB_URI",
@@ -16,6 +18,16 @@ const REQUIRED_ENV_VARS = [
 ];
 
 export async function POST(req) {
+  const token = await requireAuth(req);
+  if (token instanceof Response) return token;
+
+  if (token.role !== "SYS_ADMIN") {
+    return NextResponse.json(
+      { message: "Forbidden: SYS_ADMIN only" },
+      { status: 403 }
+    );
+  }
+
   try {
     await connectDB();
 
@@ -58,6 +70,7 @@ export async function POST(req) {
       orgType: "INTR",
     });
     const createdIntOrg = await Organization.create(intOrg);
+    await seedSystemLists("INTR");
 
     const hashedPws = await bcrypt.hash(
       process.env.DEFAULT_SYSADMIN_PASSWORD,

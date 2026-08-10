@@ -2,9 +2,8 @@ import { NextResponse } from "next/server";
 import connectDB from "@/lib/mongoose";
 import User from "@/models/User";
 import bcrypt from "bcryptjs";
-import { getToken } from "next-auth/jwt";
 import { logActivity } from "@/lib/activityLog";
-import { requireAuth, requireOrgScope, sanitizeRegex, sanitizeSortField } from "@/lib/apiGuard";
+import { requireAuth } from "@/lib/apiGuard";
 
 export async function PUT(req, { params }) {
   const token = await requireAuth(req);
@@ -13,20 +12,6 @@ export async function PUT(req, { params }) {
   await connectDB();
 
   try {
-    const token = await getToken({
-      req,
-      secret: process.env.AUTH_SECRET,
-      secureCookie: true,
-      cookieName: "__Secure-authjs.session-token",
-    });
-
-    if (!token?.id) {
-      return NextResponse.json(
-        { message: "Unauthorized" },
-        { status: 401 }
-      );
-    }
-
     const callerId = token.id;
     const { id } = await params;
 
@@ -75,6 +60,13 @@ export async function PUT(req, { params }) {
       return NextResponse.json(
         { message: "User not found" },
         { status: 404 }
+      );
+    }
+
+    if (callerId !== id && caller.role !== "SYS_ADMIN" && user.orgId !== caller.orgId) {
+      return NextResponse.json(
+        { message: "Forbidden" },
+        { status: 403 },
       );
     }
 

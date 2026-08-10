@@ -45,6 +45,8 @@ export default function EditWorkOrderPage() {
   const [subVerticals, setSubVerticals] = useState([]);
   const [saving, setSaving] = useState(false);
 
+  const isReadOnly = workOrder.status === "Completed";
+
   const normalizeList = (data: any) => {
     if (!data) return [];
     if (Array.isArray(data)) return data;
@@ -127,7 +129,7 @@ export default function EditWorkOrderPage() {
 
     const loadData = async () => {
       setWoTypes(await loadSystemList("WO TYPE"));
-      setStatuses(await loadSystemList("WO Status"));
+      setStatuses(await loadSystemList("Work Order Status"));
       setVerticals(await loadSystemList("VERTICAL"));
       setBGRefundStatuses(await loadSystemList("BG Status"));
     };
@@ -186,6 +188,11 @@ export default function EditWorkOrderPage() {
     <>
     <div className="space-y-4 px-0 md:px-4 lg:px-8">
       <PageHeader title="Edit Work Order" />
+      {isReadOnly && (
+        <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded">
+          This work order is completed and cannot be edited.
+        </div>
+      )}
 
       <form onSubmit={handleSubmit}>
       <div className="grid gap-6 lg:grid-cols-10">
@@ -210,6 +217,7 @@ export default function EditWorkOrderPage() {
                       name="woNo"
                       value={workOrder.woNo ?? ""}
                       onChange={handleChange}
+                      disabled={isReadOnly}
                     />
                   </div>
                   <div className="space-y-2">
@@ -218,6 +226,7 @@ export default function EditWorkOrderPage() {
                       name="woTitle"
                       value={workOrder.woTitle ?? ""}
                       onChange={handleChange}
+                      disabled={isReadOnly}
                     />
                   </div>
                   <div className="space-y-2">
@@ -227,6 +236,7 @@ export default function EditWorkOrderPage() {
                       name="woDate"
                       value={workOrder.woDate?.substring(0, 10) || ""}
                       onChange={handleChange}
+                      disabled={isReadOnly}
                     />
                   </div>
                   <div>
@@ -236,6 +246,7 @@ export default function EditWorkOrderPage() {
                       name="woType"
                       value={workOrder.woType ?? ""}
                       onChange={handleChange}
+                      disabled={isReadOnly}
                     >
                       <option value="">Select</option>
                       {woTypes.map((type: any) => (
@@ -252,6 +263,7 @@ export default function EditWorkOrderPage() {
                       name="status"
                       value={workOrder.status ?? ""}
                       onChange={handleChange}
+                      disabled={isReadOnly}
                     >
                       <option value="">Select</option>
                       {statuses.map((status: any) => (
@@ -274,6 +286,7 @@ export default function EditWorkOrderPage() {
                           client: client.client,
                         })
                       }
+                      disabled={isReadOnly}
                     />
                   </div>
                 </CardContent>
@@ -290,28 +303,29 @@ export default function EditWorkOrderPage() {
                   <div className="relative">
                     <Label>Tender No</Label>
 
-                    <TenderSearchCB
-                      orgId={session?.user?.orgId ?? ""}
-                      value={workOrder.tenderNo ?? ""}
-                      onSelect={(tender) =>
-                        setWorkOrder({
-                          ...workOrder,
+                      <TenderSearchCB
+                        orgId={session?.user?.orgId ?? ""}
+                        value={workOrder.tenderNo ?? ""}
+                        onSelect={(tender) =>
+                          setWorkOrder({
+                            ...workOrder,
 
-                          tenderNo: tender.tenderNo,
-                          tenderDesc: tender.description,
+                            tenderNo: tender.tenderNo,
+                            tenderDesc: tender.description,
 
-                          woValue: tender.tenderValue ?? 0,
-                          country: tender.country || "",
-                          state: tender.state || "",
-                          vertical: tender.vertical || "",
-                          subVertical: tender.subVertical || "",
-                          bgAmount: tender.bgAmount ?? 0,
+                            woValue: tender.tenderValue ?? 0,
+                            country: tender.country || "",
+                            state: tender.state || "",
+                            vertical: tender.vertical || "",
+                            subVertical: tender.subVertical || "",
+                            bgAmount: tender.bgAmount ?? 0,
 
-                          client: tender.client || "",
-                          clientId: tender.clientId || "",
-                        })
-                      }
-                    />
+                            client: tender.client || "",
+                            clientId: tender.clientId || "",
+                          })
+                        }
+                        disabled={isReadOnly}
+                      />
                   </div>
                   <div className="col-span-2">
                     <Label>Tender Description</Label>
@@ -319,6 +333,7 @@ export default function EditWorkOrderPage() {
                       name="tenderDesc"
                       value={workOrder.tenderDesc ?? ""}
                       readOnly
+                      disabled={isReadOnly}
                     />
                   </div>
                   <div>
@@ -334,6 +349,7 @@ export default function EditWorkOrderPage() {
                           subVertical: "",
                         })
                       }
+                      disabled={isReadOnly}
                     >
                       <option value="">Select</option>
 
@@ -358,6 +374,7 @@ export default function EditWorkOrderPage() {
                           subVertical: e.target.value,
                         })
                       }
+                      disabled={isReadOnly}
                     >
                       <option value="">Select</option>
 
@@ -382,24 +399,30 @@ export default function EditWorkOrderPage() {
                     <Label>Project Completion Date</Label>
                     <Input
                       type="date"
-                      value={workOrder.projectCompletionDate || ""}
+                      name="projectCompletionDate"
+                      value={workOrder.projectCompletionDate?.substring(0, 10) || ""}
                       onChange={handleChange}
+                      disabled={isReadOnly}
                     />
                   </div>
                   <div className="space-y-2">
                     <Label>Actual Start Date</Label>
                     <Input
                       type="date"
-                      value={workOrder.actualStartDate || ""}
+                      name="actualStartDate"
+                      value={workOrder.actualStartDate?.substring(0, 10) || ""}
                       onChange={handleChange}
+                      disabled={isReadOnly}
                     />
                   </div>
                   <div className="space-y-2">
                     <Label>Actual End Date</Label>
                     <Input
                       type="date"
-                      value={workOrder.actualEndDate || ""}
+                      name="actualEndDate"
+                      value={workOrder.actualEndDate?.substring(0, 10) || ""}
                       onChange={handleChange}
+                      disabled={isReadOnly}
                     />
                   </div>
                 </CardContent>
@@ -422,6 +445,7 @@ export default function EditWorkOrderPage() {
                           woValue: val,
                         })
                       }
+                      readOnly={isReadOnly}
                     />
                   </div>
                   <div>
@@ -434,14 +458,17 @@ export default function EditWorkOrderPage() {
                           bgAmount: val,
                         })
                       }
+                      readOnly={isReadOnly}
                     />
                   </div>
                   <div>
                     <Label>BG Maturity Date</Label>
                     <Input
                       type="date"
-                      value={workOrder.bgMaturityDate || ""}
+                      name="bgMaturityDate"
+                      value={workOrder.bgMaturityDate?.substring(0, 10) || ""}
                       onChange={handleChange}
+                      disabled={isReadOnly}
                     />
                   </div>
                   <div>
@@ -455,6 +482,7 @@ export default function EditWorkOrderPage() {
                           bgReceivedStatus: e.target.value,
                         })
                       }
+                      disabled={isReadOnly}
                     >
                       <option value="">Select</option>
 
@@ -485,6 +513,7 @@ export default function EditWorkOrderPage() {
                           country: e.target.value,
                         })
                       }
+                      disabled={isReadOnly}
                     >
                       <option value="">Select</option>
 
@@ -508,6 +537,7 @@ export default function EditWorkOrderPage() {
                           state: e.target.value,
                         })
                       }
+                      disabled={isReadOnly}
                     >
                       <option value="">Select</option>
 
@@ -526,7 +556,7 @@ export default function EditWorkOrderPage() {
                     Cancel
                   </Button>
 
-                  <Button type="submit" disabled={saving} className="bg-cyan-900 hover:bg-cyan-700">
+                  <Button type="submit" disabled={saving || isReadOnly} className="bg-cyan-900 hover:bg-cyan-700">
                     {saving ? "Saving..." : "Save Changes"}
                   </Button>
                 </CardContent>

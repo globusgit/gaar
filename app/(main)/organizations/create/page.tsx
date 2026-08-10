@@ -4,6 +4,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
+import { toast } from "sonner";
 
 import PageHeader from "@/app/_components/PageHeader";
 
@@ -164,10 +165,15 @@ export default function CreateOrganization() {
       });
 
       if (response.ok) {
+        toast.success("Organization created successfully");
         router.push("/organizations");
+      } else {
+        const data = await response.json().catch(() => ({}));
+        toast.error(data.message || "Unable to create organization");
       }
     } catch (error) {
-      console.log(error);
+      console.error(error);
+      toast.error("Unable to connect to the server");
     }
   };
 

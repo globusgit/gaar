@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongoose";
 import SystemList from "@/models/SystemList";
 import { logActivity } from "@/lib/activityLog";
-import { requireAuth, requireOrgScope, sanitizeRegex, sanitizeSortField } from "@/lib/apiGuard";
+import { requireAuth } from "@/lib/apiGuard";
 
 export async function GET(req) {
   const token = await requireAuth(req);
@@ -13,9 +13,18 @@ export async function GET(req) {
 
     const { searchParams } = new URL(req.url);
     const listName = searchParams.get("listName");
-    const orgId = token.orgId;
 
-    const systemLists = await SystemList.find({ listName, orgId });
+    if (!listName) {
+      return NextResponse.json({ data: [] }, { status: 200 });
+    }
+
+    const escapedName = listName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const query = {
+      listName: { $regex: "^" + escapedName + "$", $options: "i" },
+      orgId: token.orgId,
+    };
+
+    const systemLists = await SystemList.find(query);
     return NextResponse.json(
       {
         data: systemLists,
@@ -100,7 +109,7 @@ export async function DELETE(req) {
       );
     }
 
-    const item = await SystemList.findById(id);
+    const item = await SystemList.findOne({ _id: id, orgId: token.orgId });
     if (!item) {
       return NextResponse.json(
         { message: "Item not found" },
@@ -108,17 +117,67 @@ export async function DELETE(req) {
       );
     }
 
-    if (item.orgId !== token.orgId && token.role !== "SYS_ADMIN") {
-      return NextResponse.json({ message: "Forbidden" }, { status: 403 });
-    }
-
-    await SystemList.findByIdAndDelete(id);
+    await SystemList.deleteOne({ _id: id, orgId: token.orgId });
 
     return NextResponse.json(
       { message: "System List deleted successfully!" },
       { status: 200 }
     );
   } catch (err) {
+    return NextResponse.json({ error: "Server Error" }, { status: 500 });
+  }
+}
+
+export async function PUT(req) {
+  const token = await requireAuth(req);
+  if (token instanceof Response) return token;
+
+  try {
+    await connectDB();
+
+    const body = await req.json();
+    const { id, listItem } = body;
+    const orgId = token.orgId;
+
+    if (!id) {
+      return NextResponse.json(
+        { message: "ID is required" },
+        { status: 400 }
+      );
+    }
+
+    if (!listItem || !listItem.trim()) {
+      return NextResponse.json(
+        { message: "List item is required" },
+        { status: 400 }
+      );
+    }
+
+    const item = await SystemList.findOne({ _id: id, orgId });
+    if (!item) {
+      return NextResponse.json(
+        { message: "Item not found" },
+        { status: 404 }
+      );
+    }
+
+    const updated = await SystemList.findOneAndUpdate(
+      { _id: id, orgId },
+      { listItem: listItem.trim() },
+      { returnDocument: "after" }
+    );
+
+    return NextResponse.json(
+      { message: "System List updated successfully!", data: updated },
+      { status: 200 }
+    );
+  } catch (err) {
+    if (err.code === 11000) {
+      return NextResponse.json(
+        { message: "System List already exists!" },
+        { status: 400 }
+      );
+    }
     return NextResponse.json({ error: "Server Error" }, { status: 500 });
   }
 }

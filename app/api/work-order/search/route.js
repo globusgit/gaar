@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import connectDB from "@/lib/mongoose";
 import WorkOrder from "@/models/WorkOrder";
-import { requireAuth, requireOrgScope, sanitizeRegex, sanitizeSortField } from "@/lib/apiGuard";
+import { requireAuth, sanitizeRegex } from "@/lib/apiGuard";
 
 export async function GET(req) {
   try {
@@ -12,7 +12,7 @@ export async function GET(req) {
 
     const { searchParams } = new URL(req.url);
     const orgId = token.orgId;
-    const searchWorkOrder = searchParams.get("search") || "";
+    const searchWorkOrder = searchParams.get("search") || searchParams.get("q") || "";
     const safeSearchWorkOrder = sanitizeRegex(searchWorkOrder);
 
     const query = { orgId };
@@ -23,7 +23,6 @@ export async function GET(req) {
         { woNo: regex },
         { woTitle: regex },
         { tenderNo: regex },
-        { tenderName: regex },
       ];
     }
 
@@ -38,7 +37,7 @@ export async function GET(req) {
       },
       { status: 200 },
     );
-  } catch (err) {
+  } catch {
     return NextResponse.json(
       { message: "Something went wrong!" },
       { status: 500 },

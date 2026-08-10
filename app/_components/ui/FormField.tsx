@@ -13,7 +13,6 @@ interface FormFieldProps {
   placeholder?: string;
   required?: boolean;
   error?: string;
-  touched?: boolean;
   className?: string;
   disabled?: boolean;
 }
@@ -27,11 +26,10 @@ export function FormField({
   placeholder,
   required,
   error,
-  touched,
   className,
   disabled,
 }: FormFieldProps) {
-  const showError = touched && error;
+  const showError = Boolean(error);
 
   return (
     <div className={cn("space-y-2", className)}>

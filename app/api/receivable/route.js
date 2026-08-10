@@ -1,9 +1,9 @@
-import { NextResponse } from "next/server";
 import connectDB from "@/lib/mongoose";
 import ReceivableInfo from "@/models/ReceivableInfo";
+import { NextResponse } from "next/server";
 import { logActivity } from "@/lib/activityLog";
 import { notifyOrg } from "@/lib/notification";
-import { requireAuth } from "@/lib/apiGuard";
+import { requireAuth, requireOrgScope, sanitizeRegex, sanitizeSortField } from "@/lib/apiGuard";
 
 const SAFE_RECEIVABLE_FIELDS = [
   "type","description","receivableAmount","woNo","woTitle","vertical","subVertical","paymentFrom","owner","status","receivedDate","invoiceNo","dueDate","tenderNo","tenderDesc","state",
@@ -25,9 +25,30 @@ export async function GET(req) {
     const limit = parseInt(searchParams.get("limit")) || 20;
     const skip = (page - 1) * limit;
 
+    const search = searchParams.get("search") || "";
+    const sortField = sanitizeSortField(searchParams.get("sortField") || "createdAt");
+    const sortOrder = searchParams.get("sortOrder") === "asc" ? 1 : -1;
+
+    const query = { orgId: token.orgId };
+
+    if (search && search.length >= 3) {
+      const escapedSearch = sanitizeRegex(search);
+      query.$or = [
+        { description: { $regex: escapedSearch, $options: "i" } },
+        { paymentFrom: { $regex: escapedSearch, $options: "i" } },
+        { status: { $regex: escapedSearch, $options: "i" } },
+        { vertical: { $regex: escapedSearch, $options: "i" } },
+        { subVertical: { $regex: escapedSearch, $options: "i" } },
+        { state: { $regex: escapedSearch, $options: "i" } },
+      ];
+    }
+
     const [receivables, total] = await Promise.all([
-      ReceivableInfo.find({ orgId: token.orgId }).skip(skip).limit(limit),
-      ReceivableInfo.countDocuments({ orgId: token.orgId }),
+      ReceivableInfo.find(query)
+        .sort({ [sortField]: sortOrder })
+        .skip(skip)
+        .limit(limit),
+      ReceivableInfo.countDocuments(query),
     ]);
     return NextResponse.json(
       {
@@ -83,7 +104,7 @@ export async function POST(req) {
     );
 
     return NextResponse.json(
-      { message: "Receivable Info created successfully!" },
+      { message: "Receivable Info created successfully!", data: receivable },
       { status: 200 },
     );
   } catch (err) {
@@ -120,8 +141,8 @@ export async function PUT(req) {
       if (body[f] !== undefined) update[f] = body[f];
     }
 
-    const updated = await ReceivableInfo.findByIdAndUpdate(id, update, {
-      new: true,
+    const updated = await ReceivableInfo.findOneAndUpdate({ _id: id, orgId: token.orgId }, update, {
+      returnDocument: "after",
     });
 
     if (!updated) {

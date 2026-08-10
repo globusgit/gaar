@@ -9,15 +9,7 @@ export async function GET(req) {
 
   try {
     await connectDB();
-    const { searchParams } = new URL(req.url);
-    const orgId = searchParams.get("orgId");
-
-    if (!orgId) {
-      return NextResponse.json(
-        { error: "orgId is required" },
-        { status: 400 }
-      );
-    }
+    const orgId = token.orgId;
 
     const totalUsers = await User.countDocuments({ orgId });
     const firstLoginPending = await User.countDocuments({ orgId, isFirstLogin: true });

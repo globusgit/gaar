@@ -27,6 +27,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 import { Separator } from "@/components/ui/separator";
 
+import UserSearch from "@/app/_components/searches/UserSearch";
+
 type SystemListItem = {
   _id: string;
   listItem: string;
@@ -44,12 +46,20 @@ type EmployeeForm = {
   orgId: string;
   photo: string;
   status: string;
+  modules: string[];
+};
+
+type OrgOption = {
+  _id: string;
+  orgName: string;
+  orgId: string;
 };
 
 export default function CreateEmployee() {
   const router = useRouter();
   const { data: session } = useSession();
   const params = useParams();
+  const role = session?.user?.role || "";
 
   const [form, setForm] = useState<EmployeeForm>({
     _id: "",
@@ -63,11 +73,12 @@ export default function CreateEmployee() {
     orgId: "",
     photo: "",
     status: "",
+    modules: [],
   });
 
   const [photo, setPhoto] = useState<File | null>(null);
   const [designations, setDesignations] = useState<SystemListItem[]>([]);
-  const [managerSearch, setManagerSearch] = useState("");
+  const [organizations, setOrganizations] = useState<OrgOption[]>([]);
   const [loading, setLoading] = useState(false);
 
   const employeeId = params?.id as string;
@@ -79,12 +90,27 @@ export default function CreateEmployee() {
       const res = await fetch(`/api/employee/${employeeId}`);
       const data = (await res.json()) as EmployeeForm;
 
-      setForm(data);
-      setManagerSearch(data.managerName || "");
-    };
+setForm(data);
+     };
 
     loadEmployee();
   }, [employeeId]);
+
+  useEffect(() => {
+    const fetchOrganizations = async () => {
+      if (role !== "SYS_ADMIN" && role !== "ADMIN") return;
+      try {
+        const res = await fetch("/api/organization");
+        if (!res.ok) return;
+        const data = await res.json();
+        const orgs = Array.isArray(data?.data) ? data.data : [];
+        setOrganizations(orgs);
+      } catch {
+        setOrganizations([]);
+      }
+    };
+    fetchOrganizations();
+  }, [role]);
 
   useEffect(() => {
     const fetchDesignation = async () => {
@@ -115,16 +141,9 @@ export default function CreateEmployee() {
     fetchDesignation();
   }, [session?.user?.orgId]);
 
-  const searchManager = async (val: string) => {
-    setManagerSearch(val);
-
-    const res = await fetch(`/api/user/search?search=${val}`);
-    await res.json();
-  };
-
   const handleSubmit = async () => {
-    const orgId = session?.user?.orgId;
-    if (!orgId) return;
+    const targetOrgId = form.orgId || session?.user?.orgId;
+    if (!targetOrgId) return;
 
     setLoading(true);
 
@@ -137,7 +156,8 @@ export default function CreateEmployee() {
     formDataToSend.append("designation", form.designation);
     formDataToSend.append("isManager", String(form.isManager));
     formDataToSend.append("managerName", form.managerName);
-    formDataToSend.append("orgId", orgId);
+    formDataToSend.append("orgId", targetOrgId);
+    form.modules.forEach((m) => formDataToSend.append("modules", m));
     if (photo) formDataToSend.append("photo", photo);
 
     try {
@@ -257,6 +277,29 @@ export default function CreateEmployee() {
                 />
               </div>
 
+              {organizations.length > 0 && (
+                <div className="space-y-2">
+                  <Label>Organization</Label>
+
+                  <Select
+                    value={form.orgId}
+                    onValueChange={(v) => setForm({ ...form, orgId: v })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+
+                    <SelectContent>
+                      {organizations.map((o) => (
+                        <SelectItem key={o._id} value={o.orgId}>
+                          {o.orgName}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
               {/* Status */}
               <div className="space-y-2">
                 <Label>Status</Label>
@@ -268,12 +311,19 @@ export default function CreateEmployee() {
             {/* Full Width Section */}
 
             <div className="space-y-2">
-              <Label>Reporting Manager</Label>
+<Label>Reporting Manager</Label>
 
-              <Input
-                value={managerSearch}
-                onChange={(e) => searchManager(e.target.value)}
-              />
+                <UserSearch
+                  orgId={session?.user?.orgId || ""}
+                  value={form.managerName}
+                  onSelect={(user) => {
+                    setForm({
+                      ...form,
+                      managerName: user.employeeName,
+                    });
+                  }}
+                  placeholder="Search manager..."
+                />
             </div>
 
             <div className="flex items-center space-x-2">
@@ -288,6 +338,51 @@ export default function CreateEmployee() {
               />
 
               <Label>Is Manager</Label>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700">
+                Modules
+              </label>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {[
+                  { value: "dashboard", label: "Dashboard" },
+                  { value: "employees", label: "Employees" },
+                  { value: "clients", label: "Clients" },
+                  { value: "work-orders", label: "Work Orders" },
+                  { value: "tenders", label: "Tenders" },
+                  { value: "fund-request", label: "Fund Request" },
+                  { value: "payments", label: "Payments" },
+                  { value: "receivables", label: "Receivables" },
+                  { value: "organizations", label: "Organizations" },
+                  { value: "users", label: "Users" },
+                  { value: "settings", label: "Settings" },
+                  { value: "master-lists", label: "Master Lists" },
+                  { value: "system-settings", label: "System Settings" },
+                  { value: "audit-logs", label: "Audit Logs" },
+                ].map((module) => (
+                  <div key={module.value} className="flex items-center gap-2">
+                    <Checkbox
+                      id={`module-${module.value}`}
+                      checked={form.modules.includes(module.value)}
+                      onCheckedChange={(checked) => {
+                        setForm((prev) => ({
+                          ...prev,
+                          modules: checked
+                            ? [...prev.modules, module.value]
+                            : prev.modules.filter((m) => m !== module.value),
+                        }));
+                      }}
+                    />
+                    <label
+                      htmlFor={`module-${module.value}`}
+                      className="text-sm text-slate-600 cursor-pointer"
+                    >
+                      {module.label}
+                    </label>
+                  </div>
+                ))}
+              </div>
             </div>
 
             <Separator />

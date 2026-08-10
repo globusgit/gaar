@@ -4,8 +4,7 @@ const ConfigSchema = new mongoose.Schema(
     {
         name:{
             type: String,
-            required: true,
-            unique: true
+            required: true
         },
         value:{
             type: String,
@@ -18,5 +17,7 @@ const ConfigSchema = new mongoose.Schema(
     },
     {timestamps: true}
 )
+
+ConfigSchema.index({ name: 1, orgId: 1 }, { unique: true });
 
 export default mongoose.models.Config || mongoose.model("Config", ConfigSchema)

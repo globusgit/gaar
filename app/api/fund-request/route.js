@@ -31,17 +31,31 @@ export async function GET(req) {
     if (token instanceof Response) return token;
 
     const employee = await Employee.findOne({
-      phone: token.username,
+      $or: [
+        { empId: token.username },
+        { phone: token.username },
+      ],
       orgId: token.orgId,
-    });
+    }).lean();
 
     let filter = { orgId: token.orgId };
 
-    if (!["SYS_ADMIN", "ADMIN", "ACCOUNTS"].includes(token.role)) {
+    const isAdmin = token.role === "ADMIN" || token.role === "SYS_ADMIN";
+
+    if (!isAdmin) {
       if (!employee) {
         return NextResponse.json({ data: [], total: 0, page, limit, totalPages: 0 });
       }
       filter.requestedById = employee._id;
+    } else {
+      const scope = searchParams.get("scope") || "all";
+
+      if (scope === "mine") {
+        if (!employee) {
+          return NextResponse.json({ data: [], total: 0, page, limit, totalPages: 0 });
+        }
+        filter.requestedById = employee._id;
+      }
     }
 
     if (search) {
@@ -53,6 +67,13 @@ export async function GET(req) {
         { subVertical: { $regex: escapedSearch, $options: "i" } },
         { description: { $regex: escapedSearch, $options: "i" } },
         { status: { $regex: escapedSearch, $options: "i" } },
+        { paymentType: { $regex: escapedSearch, $options: "i" } },
+        { frType: { $regex: escapedSearch, $options: "i" } },
+        { paymentTo: { $regex: escapedSearch, $options: "i" } },
+        { requestedBy: { $regex: escapedSearch, $options: "i" } },
+        { amount: { $regex: escapedSearch, $options: "i" } },
+        { tenderNo: { $regex: escapedSearch, $options: "i" } },
+        { woNo: { $regex: escapedSearch, $options: "i" } },
       ];
     }
 
@@ -89,7 +110,15 @@ export async function POST(req) {
   try {
     const body = await req.json();
 
-    const config = await Config.findOne({ name: "FR Count" });
+    let config = await Config.findOne({ name: "FR Count", orgId: token.orgId });
+
+    if (!config) {
+      config = await Config.create({
+        name: "FR Count",
+        value: "1",
+        orgId: token.orgId,
+      });
+    }
 
     const frNo = "FR" + config.value.toString();
 
@@ -102,12 +131,24 @@ export async function POST(req) {
     data.status = "Pending Approval";
     data.requestedDate = new Date();
 
+    const employee = await Employee.findOne({
+      $or: [
+        { empId: token.username },
+        { phone: token.username },
+      ],
+      orgId: token.orgId,
+    }).lean();
+
+    if (employee) {
+      data.requestedById = employee._id;
+    }
+
     const fr = await FundRequest.create(data);
 
     if (fr) {
       let frCount = parseInt(config.value, 10) + 1;
       await Config.findOneAndUpdate(
-        { name: "FR Count" },
+        { name: "FR Count", orgId: token.orgId },
         { value: frCount.toString() },
       );
     }
@@ -133,8 +174,21 @@ export async function POST(req) {
       { status: 201 },
     );
   } catch (err) {
+    console.error("Fund request creation error:", err);
+    if (err?.code === 11000) {
+      return NextResponse.json(
+        { message: "Fund request number already exists. Please retry." },
+        { status: 409 },
+      );
+    }
+    if (err?.name === "ValidationError") {
+      return NextResponse.json(
+        { message: Object.values(err.errors).map((item) => item.message).join(", ") },
+        { status: 400 },
+      );
+    }
     return NextResponse.json(
-      { message: "Something went wrong!" },
+      { message: "Unable to create fund request. Please verify the required fields." },
       { status: 500 }
     );
   }

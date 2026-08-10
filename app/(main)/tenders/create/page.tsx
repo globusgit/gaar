@@ -22,6 +22,8 @@ import AmountToWords from "@/app/_components/AmountToWords";
 import { FileText } from "lucide-react";
 import { Select } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import ClientSearch from "@/app/_components/searches/ClientSearch";
+import OwnerSearch from "@/app/_components/searches/OwnerSearch";
 
 export default function CreateTenderPage() {
   const router = useRouter();
@@ -32,7 +34,6 @@ export default function CreateTenderPage() {
 
   const [formData, setFormData] = useState({
     tenderNo: "",
-    tenderName: "",
     description: "",
     tenderDate: "",
     preBidMeetingDate: "",
@@ -51,23 +52,21 @@ export default function CreateTenderPage() {
     tenderingDepartment: "",
     client: "",
     owner: "",
+    tenderManager: "",
+    tenderManagerEmail: "",
+    tenderManagerPhone: "",
+    tenderOwner: "",
+    scm: "",
+    clientId: "",
+    position: "Draft",
     isMAFRequired: false,
     remarks: "",
     orgId: "",
   });
   const [countries, setCountries] = useState<any[]>([]);
   const [states, setStates] = useState<any[]>([]);
-  const [departmentSearch, setDepartmentSearch] = useState("");
-
-  const [clientSearch, setClientSearch] = useState("");
-
-  const [departmentResults, setDepartmentResults] = useState([]);
-
-  const [clientResults, setClientResults] = useState([]);
+  const [positions, setPositions] = useState<any[]>([]);
   const orgId = session?.user?.orgId || "";
-  const [userResults, setUserResults] = useState<any[]>([]);
-  const [userSearch, setUserSearch] = useState("");
-  const [showUserResults, setShowUserResults] = useState(false);
 
   function handleChange(
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
@@ -141,8 +140,12 @@ export default function CreateTenderPage() {
     if (!orgId) return;
 
     const loadVerticals = async () => {
-      const verticalsList = await Promise.all([fetchList("VERTICAL", orgId)]);
-      setVerticals(verticalsList[0] || []);
+      const [verticalsList, positionsList] = await Promise.all([
+        fetchList("VERTICAL", orgId),
+        fetchList("Position", orgId),
+      ]);
+      setVerticals(verticalsList || []);
+      setPositions(positionsList || []);
     };
 
     loadVerticals();
@@ -156,62 +159,7 @@ export default function CreateTenderPage() {
     fetchList(formData.vertical, formData.orgId).then(setSubVerticals);
   }, [formData.vertical]);
 
-  // Department Search
-  useEffect(() => {
-    async function searchDepartment() {
-      if (!departmentSearch.trim()) {
-        setDepartmentResults([]);
-        return;
-      }
-
-      try {
-        const res = await fetch(
-          `/api/client/search?q=${departmentSearch}&orgId=${formData.orgId}`,
-        );
-
-        const data = await res.json();
-
-        setDepartmentResults(data.data || []);
-      } catch (error) {
-        console.log(error);
-      }
-    }
-
-    const delay = setTimeout(() => {
-      searchDepartment();
-    }, 300);
-
-    return () => clearTimeout(delay);
-  }, [departmentSearch, formData.orgId]);
-
-  // Client Search
-  useEffect(() => {
-    async function searchClient() {
-      if (!clientSearch.trim()) {
-        setClientResults([]);
-        return;
-      }
-
-      try {
-        const res = await fetch(
-          `/api/client/search?q=${clientSearch}&orgId=${formData.orgId}`,
-        );
-
-        const data = await res.json();
-
-        setClientResults(data.data || []);
-      } catch (error) {
-        console.log(error);
-      }
-    }
-
-    const delay = setTimeout(() => {
-      searchClient();
-    }, 300);
-
-    return () => clearTimeout(delay);
-  }, [clientSearch, formData.orgId]);
-
+  // ---------------- SET ORG ID ----------------
   useEffect(() => {
     const orgId = session?.user?.orgId || "";
 
@@ -225,99 +173,46 @@ export default function CreateTenderPage() {
     e.preventDefault();
 
     try {
+      const numericFields = [
+        "tenderValue",
+        "emdAmount",
+        "bgAmount",
+        "documentFee",
+        "corpusFund",
+        "transactionFee",
+      ];
+
+      const cleanedData: Record<string, unknown> = { ...formData };
+
+      for (const field of numericFields) {
+        const val = cleanedData[field];
+
+        if (val === "" || val === null || val === undefined) {
+          cleanedData[field] = 0;
+        } else {
+          cleanedData[field] = Number(val);
+        }
+      }
+
       const res = await fetch("/api/tender", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(cleanedData),
       });
 
       if (!res.ok) {
-        throw new Error("Failed to create tender");
+        const data = await res.json();
+        throw new Error(data.message || "Failed to create tender");
       }
 
-      router.push("/tenders");
+      await router.push("/tenders");
     } catch (error) {
-      console.log(error);
+      console.error("Tender create error:", error);
+      alert(error instanceof Error ? error.message : "Failed to create tender");
     }
   }
-
-  const searchUsers = async (query: string) => {
-    if (!query.trim()) {
-      setUserResults([]);
-      return;
-    }
-    //console.log("Searching:", query);
-    try {
-      const res = await fetch(
-        `/api/user/search?q=${query}&orgId=${formData.orgId}`,
-      );
-      const data = await res.json();
-      //console.log(data);
-      setUserResults(Array.isArray(data) ? data : data.data || []);
-    } catch (error) {
-      console.log(error);
-    }
-  };
-
-  //Owner Search
-  const renderUserSearch = (field: string, label: string) => (
-    <div className="space-y-2 relative z-50">
-      <Label>{label}</Label>
-
-      <Input
-        value={userSearch}
-        placeholder={`Search ${label}`}
-        onFocus={() => setShowUserResults(true)}
-        onChange={(e) => {
-          const value = e.target.value;
-
-          setUserSearch(value);
-          setShowUserResults(true);
-
-          setFormData((prev) => ({
-            ...prev,
-            owner: value,
-          }));
-
-          searchUsers(value);
-        }}
-      />
-
-      {showUserResults && userResults.length > 0 && (
-        <div className="absolute top-full left-0 mt-1 z-[9999] bg-white border rounded-md shadow-lg w-full">
-          {" "}
-          {userResults.map((user: any) => (
-            <div
-              key={user._id}
-              className="p-2 hover:bg-gray-100 cursor-pointer"
-              onClick={() => {
-                setUserSearch(user.name);
-
-                setFormData((prev) => ({
-                  ...prev,
-                  owner: user.name,
-                }));
-                setShowUserResults(false);
-                setUserResults([]);
-              }}
-            >
-              {user.name}
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      searchUsers(userSearch);
-    }, 300);
-
-    return () => clearTimeout(timer);
-  }, [userSearch]);
 
   return (
     <div className="space-y-4 *:px-0 md:px-4 lg:px-8">
@@ -347,7 +242,39 @@ export default function CreateTenderPage() {
               />
             </div>
 
-            {renderUserSearch("owner", "Owner")}
+            <div className="space-y-2">
+              <Label>Owner</Label>
+              <OwnerSearch
+                orgId={orgId}
+                value={formData.owner}
+                onSelect={(emp) =>
+                  setFormData((prev) => ({ ...prev, owner: emp.name }))
+                }
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Position</Label>
+
+              <select
+                className="border rounded-lg p-2 w-full"
+                value={formData.position}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    position: e.target.value,
+                  })
+                }
+              >
+                <option value="">Select Position</option>
+
+                {positions.map((pl: any) => (
+                  <option key={pl._id} value={pl.listItem}>
+                    {pl.listItem}
+                  </option>
+                ))}
+              </select>
+            </div>
 
             <div className="space-y-2">
               <Label>Is MAF Required</Label>
@@ -616,89 +543,96 @@ export default function CreateTenderPage() {
           </CardHeader>
 
           <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4 overflow-visible">
-            {/* Department */}
-            <div className="space-y-2 relative z-50">
-              <Label>Tendering Department</Label>
+{/* Department */}
+             <div className="space-y-2">
+               <Label>Tendering Department</Label>
+               <ClientSearch
+                 orgId={orgId}
+                 value={formData.tenderingDepartment}
+                 onSelect={(client) =>
+                   setFormData((prev) => ({
+                     ...prev,
+                     tenderingDepartment: client.client,
+                   }))
+                 }
+               />
+             </div>
 
-              <Input
-                placeholder="Search by name or id"
-                value={departmentSearch || formData.tenderingDepartment}
-                onChange={(e) => {
-                  setDepartmentSearch(e.target.value);
+             {/* Client */}
+             <div className="space-y-2">
+               <Label>Client</Label>
+               <ClientSearch
+                 orgId={orgId}
+                 value={formData.client}
+                 onSelect={(client) =>
+                   setFormData((prev) => ({
+                     ...prev,
+                     client: client.client,
+                   }))
+                 }
+               />
+             </div>
 
-                  setFormData((prev) => ({
-                    ...prev,
-                    tenderingDepartment: e.target.value,
-                  }));
-                }}
-              />
+             {/* Tender Manager */}
+             <div className="space-y-2">
+               <Label>Tender Manager</Label>
+               <Input
+                 name="tenderManager"
+                 value={formData.tenderManager}
+                 onChange={handleChange}
+               />
+             </div>
 
-              {!!departmentResults.length && (
-                <div className="absolute top-full left-0 mt-1 w-full rounded-md border bg-white shadow-lg z-[9999] max-h-60 overflow-auto">
-                  {departmentResults.map((item: any) => (
-                    <button
-                      type="button"
-                      key={item._id}
-                      className="w-full text-left px-3 py-2 hover:bg-muted"
-                      onClick={() => {
-                        setFormData((prev) => ({
-                          ...prev,
-                          tenderingDepartment: item.client,
-                        }));
+             {/* Tender Manager Email */}
+             <div className="space-y-2">
+               <Label>Tender Manager Email</Label>
+               <Input
+                 type="email"
+                 name="tenderManagerEmail"
+                 value={formData.tenderManagerEmail}
+                 onChange={handleChange}
+               />
+             </div>
 
-                        setDepartmentSearch("");
+             {/* Tender Manager Phone */}
+             <div className="space-y-2">
+               <Label>Tender Manager Phone</Label>
+               <Input
+                 name="tenderManagerPhone"
+                 value={formData.tenderManagerPhone}
+                 onChange={handleChange}
+               />
+             </div>
 
-                        setDepartmentResults([]);
-                      }}
-                    >
-                      {item.client}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+             {/* Tender Owner */}
+             <div className="space-y-2">
+               <Label>Tender Owner</Label>
+               <Input
+                 name="tenderOwner"
+                 value={formData.tenderOwner}
+                 onChange={handleChange}
+               />
+             </div>
 
-            {/* Client */}
-            <div className="space-y-2 relative z-50">
-              <Label>Client</Label>
+             {/* SCM */}
+             <div className="space-y-2">
+               <Label>SCM</Label>
+               <Input
+                 name="scm"
+                 value={formData.scm}
+                 onChange={handleChange}
+               />
+             </div>
 
-              <Input
-                placeholder="Search by name or id"
-                value={clientSearch || formData.client}
-                onChange={(e) => {
-                  setClientSearch(e.target.value);
-
-                  setFormData((prev) => ({
-                    ...prev,
-                    client: e.target.value,
-                  }));
-                }}
-              />
-
-              {!!clientResults.length && (
-                <div className="absolute top-full left-0 mt-1 w-full rounded-md border bg-white shadow-lg z-[9999] max-h-60 overflow-auto">
-                  {clientResults.map((item: any) => (
-                    <button
-                      type="button"
-                      key={item._id}
-                      className="w-full text-left px-3 py-2 hover:bg-muted"
-                      onClick={() => {
-                        setFormData((prev) => ({
-                          ...prev,
-                          client: item.client,
-                        }));
-
-                        setClientSearch("");
-
-                        setClientResults([]);
-                      }}
-                    >
-                      {item.client}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+             {/* Client ID */}
+             <div className="space-y-2">
+               <Label>Client ID</Label>
+               <Input
+                 name="clientId"
+                 value={formData.clientId}
+                 onChange={handleChange}
+               />
+             </div>
           </CardContent>
         </Card>
         {/* REMARKS */}

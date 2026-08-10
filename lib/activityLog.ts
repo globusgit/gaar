@@ -1,6 +1,7 @@
-import { getToken } from "next-auth/jwt";
 import connectDB from "./mongoose";
 import ActivityLog from "@/models/ActivityLog";
+import { getAuthToken } from "@/lib/apiGuard";
+import type { NextRequest } from "next/server";
 
 export async function logActivity(data: {
   activity: string;
@@ -8,17 +9,12 @@ export async function logActivity(data: {
   entity: string;
   entityId: string;
   orgId: string;
-  req: any;
+  req: NextRequest;
 }) {
   try {
     await connectDB();
 
-    const token = await getToken({
-      req: data.req,
-      secret: process.env.AUTH_SECRET,
-      secureCookie: true,
-      cookieName: "__Secure-authjs.session-token",
-    });
+    const token = await getAuthToken(data.req);
 
     const username = token?.username || "unknown";
     const userId = token?.id || "unknown";

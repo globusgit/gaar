@@ -11,7 +11,7 @@ export async function GET(req) {
 
   const { searchParams } = new URL(req.url);
   const search = searchParams.get("search") || "";
-  const orgId = searchParams.get("orgId");
+  const orgId = token.orgId;
 
   let query = { orgId };
 

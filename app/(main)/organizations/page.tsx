@@ -66,6 +66,21 @@ export default function OrganizationPage() {
     fetchOrganizations();
   }, [page, limit, search]);
 
+  const exportExcel = async () => {
+    try {
+      const res = await fetch(`/api/organization/export?search=${search}`);
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "organizations.xlsx";
+      a.click();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Export failed", err);
+    }
+  };
+
   const totalPages = Math.ceil(totalRecords / limit) || 1;
 
   const columns: ColumnDef<Organization>[] = [
@@ -124,7 +139,7 @@ export default function OrganizationPage() {
       searchPlaceholder="Universal Search..."
       onCreate={() => router.push("/organizations/create")}
       createLabel="Organization"
-      onExport={() => {}}
+      onExport={exportExcel}
       renderActions={(row) => (
         <Button
           variant="ghost"

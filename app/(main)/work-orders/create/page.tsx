@@ -13,6 +13,7 @@ import TenderSearchCB from "@/app/_components/searches/TenderSearchCB";
 import { Textarea } from "@/components/ui/textarea";
 import AmountToWords from "@/app/_components/AmountToWords";
 import ClientSearch from "@/app/_components/searches/ClientSearch";
+import OwnerSearch from "@/app/_components/searches/OwnerSearch";
 
 export default function CreateWorkOrderPage() {
   const router = useRouter();
@@ -50,11 +51,14 @@ export default function CreateWorkOrderPage() {
     client: "",
     clientId: "",
 
+    projectManager: "",
+    scm: "",
+
     bgAmount: 0,
     bgMaturityDate: "",
     bgReceivedStatus: "",
     woValue: 0,
-    orgId: session?.user?.orgId || "",
+    orgId: "",
   });
 
   const normalizeList = (data: any) => {
@@ -345,31 +349,62 @@ export default function CreateWorkOrderPage() {
             </select>
           </div>
 
-          <div>
-            <label className="font-bold">State *</label>
+<div>
+             <label className="font-bold">State *</label>
 
-            <select
-              className="border rounded-lg p-2 w-full"
-              value={formData.state}
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  state: e.target.value,
-                })
-              }
-            >
-              <option value="">Select</option>
+             <select
+               className="border rounded-lg p-2 w-full"
+               value={formData.state}
+               onChange={(e) =>
+                 setFormData({
+                   ...formData,
+                   state: e.target.value,
+                 })
+               }
+             >
+               <option value="">Select</option>
 
-              {states.map((s: any) => (
-                <option key={s.id} value={s.state}>
-                  {s.state}
-                </option>
-              ))}
-            </select>
-          </div>
-          {/* Project Completion Date */}
-          <div>
-            <Label className="font-bold">Project Completion Date</Label>
+               {states.map((s: any) => (
+                 <option key={s.id} value={s.state}>
+                   {s.state}
+                 </option>
+               ))}
+             </select>
+           </div>
+
+           {/* Project Manager */}
+           <div>
+             <Label className="font-bold">Project Manager</Label>
+             <OwnerSearch
+               orgId={session?.user?.orgId ?? ""}
+               value={formData.projectManager}
+               onSelect={(emp) =>
+                 setFormData({
+                   ...formData,
+                   projectManager: emp.name,
+                 })
+               }
+             />
+           </div>
+
+           {/* SCM */}
+           <div>
+             <Label className="font-bold">SCM</Label>
+             <OwnerSearch
+               orgId={session?.user?.orgId ?? ""}
+               value={formData.scm}
+               onSelect={(emp) =>
+                 setFormData({
+                   ...formData,
+                   scm: emp.name,
+                 })
+               }
+             />
+           </div>
+
+           {/* Project Completion Date */}
+           <div>
+             <Label className="font-bold">Project Completion Date</Label>
             <Input
               type="date"
               name="projectCompletionDate"

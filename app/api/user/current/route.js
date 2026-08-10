@@ -3,6 +3,24 @@ import connectDB from "@/lib/mongoose";
 import User from "@/models/User";
 import { requireAuth, requireOrgScope, sanitizeRegex, sanitizeSortField } from "@/lib/apiGuard";
 
+const ORG_USER_DEFAULT_MODULES = [
+  "dashboard",
+  "fund-request",
+  "payments",
+  "receivables",
+  "employees",
+  "clients",
+  "work-orders",
+  "tenders",
+  "organizations",
+  "users",
+  "ai",
+  "settings",
+  "master-lists",
+  "system-settings",
+  "audit-logs",
+];
+
 export async function GET(req) {
   const token = await requireAuth(req);
   if (token instanceof Response) return token;
@@ -17,6 +35,18 @@ export async function GET(req) {
         { message: "User not found" },
         { status: 404 }
       );
+    }
+
+    // Older organization-contact accounts were created before modules were
+    // assigned. Restore only their established default access.
+    if (user.role === "ORG_USER" && (!Array.isArray(user.modules) || user.modules.length === 0)) {
+      user.modules = ORG_USER_DEFAULT_MODULES;
+      await user.save();
+    }
+
+    if (user.role === "SYS_ADMIN" && (!Array.isArray(user.modules) || user.modules.length === 0)) {
+      user.modules = ORG_USER_DEFAULT_MODULES;
+      await user.save();
     }
 
     return NextResponse.json({ data: user }, { status: 200 });

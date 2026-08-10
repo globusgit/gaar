@@ -31,9 +31,10 @@ interface Props {
   orgId: string;
   value?: string;
   onSelect: (client: Client) => void;
+  disabled?: boolean;
 }
 
-export default function ClientSearch({ orgId, value, onSelect }: Props) {
+export default function ClientSearch({ orgId, value, onSelect, disabled }: Props) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [clients, setClients] = useState<Client[]>([]);
@@ -77,6 +78,7 @@ export default function ClientSearch({ orgId, value, onSelect }: Props) {
           variant="outline"
           role="combobox"
           className="w-full justify-between"
+          disabled={disabled}
         >
           {value || "Search Client..."}
 
@@ -84,7 +86,7 @@ export default function ClientSearch({ orgId, value, onSelect }: Props) {
         </Button>
       </PopoverTrigger>
 
-      <PopoverContent className="w-[600px] p-0" align="start">
+      <PopoverContent className="w-[calc(100vw-2rem)] max-w-[600px] p-0" align="start">
         <Command shouldFilter={false}>
           <CommandInput
             placeholder="Search Client Name..."

@@ -7,14 +7,6 @@ import { Button } from '@/components/ui/button'
 import { Menu } from 'lucide-react'
 import { useState } from 'react'
 import { NotificationProvider } from '../_components/NotificationContext'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
 import { ErrorBoundary } from '../_components/ErrorBoundary'
 import ProtectedRoute from '../_components/ProtectedRoute'
 
@@ -32,7 +24,7 @@ const layout = ({children} : {children: React.ReactNode}) => {
         )}
         
         <div className={`
-          fixed inset-y-0 left-0 z-50 w-[16%] md:w-[8%] lg:w-[16%] xl:w-[14%] bg-cyan-900
+          fixed inset-y-0 left-0 z-50 w-64 max-w-[85vw] bg-cyan-900 lg:w-[16%] lg:max-w-none xl:w-[14%]
           transform transition-transform duration-300 ease-in-out
           lg:relative lg:translate-x-0
           ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
@@ -40,20 +32,20 @@ const layout = ({children} : {children: React.ReactNode}) => {
           <SideNav/>
         </div>
         
-        <div className="flex-1 overflow-scroll">
-          <NavBar />
-          {sidebarOpen === false && (
-            <div className="lg:hidden p-4">
+        <div className="min-w-0 flex-1 overflow-y-auto overflow-x-hidden">
+          <NavBar
+            menuButton={
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => setSidebarOpen(!sidebarOpen)}
-                className="text-white hover:bg-cyan-100 hover:text-black"
+                onClick={() => setSidebarOpen(true)}
+                className="text-cyan-950 hover:bg-cyan-100 lg:hidden"
+                aria-label="Open navigation menu"
               >
                 <Menu className="h-6 w-6" />
               </Button>
-            </div>
-          )}
+            }
+          />
           <ErrorBoundary>
             <ProtectedRoute>
               {children}

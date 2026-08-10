@@ -14,26 +14,26 @@ const OrganizationSchema = new mongoose.Schema(
     },
     contactName: {
       type: String,
-      required: true,
+      default: "",
     },
     contactDesignation: {
       type: String,
-      required: true,
+      default: "",
     },
     phone: {
       type: String,
-      required: true,
       unique: true,
+      sparse: true,
     },
     email: {
       type: String,
-      required: true,
       unique: true,
+      sparse: true,
     },
     website: {
       type: String,
-      required: true,
       unique: true,
+      sparse: true,
     },
     address: {
       type: String,

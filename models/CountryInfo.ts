@@ -22,4 +22,6 @@ const CountryInfoSchema = new mongoose.Schema(
 
 );
 
+CountryInfoSchema.index({ country: 1, state: 1, district: 1, mandal: 1 }, { unique: true });
+
 export default mongoose.models.CountryInfo || mongoose.model("CountryInfo", CountryInfoSchema);

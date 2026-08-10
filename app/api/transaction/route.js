@@ -6,7 +6,7 @@ import ReceivableInfo from "@/models/ReceivableInfo";
 import TenderInfo from "@/models/TenderInfo";
 import WorkOrder from "@/models/WorkOrder";
 import FundRequest from "@/models/FundRequest";
-import { requireAuth } from "@/lib/apiGuard";
+import { requireAuth, sanitizeRegex, sanitizeSortField } from "@/lib/apiGuard";
 
 const SAFE_TRANSACTION_FIELDS = [
   "entityType","entityId","amount","txnDate","txnType","paidTo","txnNote",
@@ -27,10 +27,43 @@ export async function POST(req) {
     }
     data.orgId = token.orgId;
 
+    const amount = Number(data.amount);
+    if (!amount || amount <= 0 || isNaN(amount)) {
+      return NextResponse.json(
+        { message: "Invalid transaction amount" },
+        { status: 400 }
+      );
+    }
+
+    if (!data.entityId || !["PAYMENT", "RECEIVABLE"].includes(data.entityType)) {
+      return NextResponse.json(
+        { message: "A valid transaction entity is required" },
+        { status: 400 },
+      );
+    }
+
+    const targetEntity = data.entityType === "PAYMENT"
+      ? await PaymentInfo.findOne({ _id: data.entityId, orgId: token.orgId })
+      : await ReceivableInfo.findOne({ _id: data.entityId, orgId: token.orgId });
+
+    if (!targetEntity) {
+      return NextResponse.json({ message: "Transaction entity not found" }, { status: 404 });
+    }
+
+    const availableBalance = data.entityType === "PAYMENT"
+      ? Number(targetEntity.balanceAmount || 0)
+      : Number(targetEntity.balanceReceivableAmount || 0);
+    if (amount > availableBalance) {
+      return NextResponse.json(
+        { message: "Transaction amount cannot exceed the outstanding balance" },
+        { status: 400 },
+      );
+    }
+
     const createdTxn = await TransactionInfo.create(data);
     if (createdTxn) {
       if (body.entityType === "PAYMENT") {
-        const paymentData = await PaymentInfo.findById(body.entityId);
+        const paymentData = targetEntity;
         const balanceAmount =
           Number(paymentData.balanceAmount) - Number(body.amount);
 
@@ -39,8 +72,8 @@ export async function POST(req) {
           paymentStatus = "Paid";
         }
 
-        const up = await PaymentInfo.findByIdAndUpdate(
-          body.entityId,
+        const up = await PaymentInfo.findOneAndUpdate(
+          { _id: body.entityId, orgId: token.orgId },
           {
             $inc: {
               balanceAmount: -body.amount,
@@ -161,7 +194,7 @@ export async function POST(req) {
           }
         }
       } else if (body.entityType === "RECEIVABLE") {
-        const receivableData = await ReceivableInfo.findById(body.entityId);
+        const receivableData = targetEntity;
 
         const balanceReceivableAmount =
           Number(receivableData.balanceReceivableAmount || 0) - body.amount;
@@ -180,8 +213,8 @@ export async function POST(req) {
           receivableStatus = "Partially Received";
         }
 
-        const updatedReceivable = await ReceivableInfo.findByIdAndUpdate(
-          body.entityId,
+        const updatedReceivable = await ReceivableInfo.findOneAndUpdate(
+          { _id: body.entityId, orgId: token.orgId },
           {
             $inc: {
               balanceReceivableAmount: -body.amount,
@@ -259,32 +292,26 @@ export async function GET(req) {
     const { searchParams } = new URL(req.url);
     const entityType = searchParams.get("entityType");
     const entityId = searchParams.get("entityId");
+    const sortField = sanitizeSortField(searchParams.get("sortField") || "createdAt");
+    const sortOrder = searchParams.get("sortOrder") === "asc" ? 1 : -1;
+
+    const query = { orgId: token.orgId };
+    if (entityId) {
+      query.entityId = entityId;
+    }
+    if (entityType) {
+      const escapedType = sanitizeRegex(entityType);
+      query.entityType = { $regex: escapedType, $options: "i" };
+    }
 
     const [txns, total] = await Promise.all([
-      TransactionInfo.find({ orgId: token.orgId, entityId }),
+      TransactionInfo.find(query).sort({ [sortField]: sortOrder }),
+      TransactionInfo.countDocuments(query),
     ]);
     return NextResponse.json(
       {
         data: txns,
       },
-      { status: 200 },
-    );
-  } catch (err) {
-    return NextResponse.json(
-      { message: "Something went wrong!" },
-      { status: 500 }
-    );
-  }
-}
-
-export async function PATCH(req) {
-  const token = await requireAuth(req);
-  if (token instanceof Response) return token;
-
-  const { client, website, emailId, phone, gstNo } = await req.json();
-  try {
-    return NextResponse.json(
-      { message: "Successfully saved Client!" },
       { status: 200 },
     );
   } catch (err) {

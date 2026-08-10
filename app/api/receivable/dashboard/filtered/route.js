@@ -17,8 +17,12 @@ export async function GET(req, res) {
     const skip = (page - 1) * limit;
 
     filter.status = { $in: ["Pending", "Partially Received"] };
+    filter.balanceReceivableAmount = { $gt: 0 };
 
-    const data = await ReceivableInfo.find(filter).skip(skip).limit(limit);
+    const data = await ReceivableInfo.find(filter)
+      .sort({ dueDate: 1, createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
     const total = await ReceivableInfo.countDocuments(filter);
 
     return NextResponse.json({ data, page, limit, total }, { status: 200 });

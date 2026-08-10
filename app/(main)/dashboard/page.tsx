@@ -52,7 +52,8 @@ type ReceivableItem = {
   paymentFrom: string;
   invoiceNumber?: string;
   balanceReceivableAmount: number;
-  dueDate: string;
+  dueDate?: string | null;
+  status?: string;
 };
 
 type DashboardData = {
@@ -68,6 +69,7 @@ type DashboardData = {
   totalPendingWorkOrders?: number;
   totalCompletedWorkOrders?: number;
   totalOverdueWorkOrders?: number;
+  totalSuspendedWorkOrders?: number;
 };
 
 export default function DashboardPage() {
@@ -77,7 +79,9 @@ export default function DashboardPage() {
   const jwtModules = session?.user?.modules || [];
   const [userModules, setUserModules] = useState<string[]>(jwtModules);
   const userModulesRef = useRef<string[]>(jwtModules);
+  const hasLoadedDashboard = useRef(false);
   userModulesRef.current = userModules;
+  const userModulesKey = userModules.join("|");
 
   useEffect(() => {
     if (!orgId) return;
@@ -117,17 +121,17 @@ export default function DashboardPage() {
 
   const [employeeStats, setEmployeeStats] = useState<{ totalEmployees?: number; totalManagers?: number; totalActive?: number } | null>(null);
   const [clientStats, setClientStats] = useState<{ totalClients?: number } | null>(null);
-  const [tenderStats, setTenderStats] = useState<{ totalTenders?: number; totalActive?: number } | null>(null);
+  const [tenderStats, setTenderStats] = useState<{ totalTenders?: number; totalActive?: number; pendingTenders?: number; l1Tenders?: number; l2Tenders?: number; lostTenders?: number } | null>(null);
   const [userStats, setUserStats] = useState<{ totalUsers?: number; firstLoginPending?: number } | null>(null);
   const [orgStats, setOrgStats] = useState<{ totalOrganizations?: number } | null>(null);
 
   const pendingApprovalFRs = useMemo(() => {
-    return fundRequests.filter((item) => item.status === "PENDING_APPROVAL");
+    return fundRequests.filter((item) => item.status === "Pending Approval");
   }, [fundRequests]);
 
   const pendingAuthorizationFRs = useMemo(() => {
     return fundRequests.filter(
-      (item) => item.status === "PENDING_AUTHORIZATION",
+      (item) => item.status === "Pending Authorization",
     );
   }, [fundRequests]);
 
@@ -153,7 +157,9 @@ export default function DashboardPage() {
 
     const fetchDashboard = async () => {
       try {
-        setLoading(true);
+        if (!hasLoadedDashboard.current) {
+          setLoading(true);
+        }
 
         const [
           receivableRes,
@@ -169,37 +175,37 @@ export default function DashboardPage() {
           orgRes,
         ] = await Promise.all([
           userModulesRef.current.includes("receivables")
-            ? fetch(`/api/receivable/dashboard?orgId=${orgId}`)
+            ? fetch(`/api/receivable/dashboard?orgId=${orgId}`, { cache: "no-store" })
             : Promise.resolve(new Response(JSON.stringify({}), { headers: { "Content-Type": "application/json" } })),
           userModulesRef.current.includes("payments")
-            ? fetch(`/api/payment/dashboard?orgId=${orgId}`)
+            ? fetch(`/api/payment/dashboard?orgId=${orgId}`, { cache: "no-store" })
             : Promise.resolve(new Response(JSON.stringify({}), { headers: { "Content-Type": "application/json" } })),
           userModulesRef.current.includes("work-orders")
-            ? fetch(`/api/work-order/dashboard?orgId=${orgId}`)
+            ? fetch(`/api/work-order/dashboard?orgId=${orgId}`, { cache: "no-store" })
             : Promise.resolve(new Response(JSON.stringify({}), { headers: { "Content-Type": "application/json" } })),
           userModulesRef.current.includes("work-orders")
-            ? fetch(`/api/work-order/dashboard/amc?orgId=${orgId}`)
+            ? fetch(`/api/work-order/dashboard/amc?orgId=${orgId}`, { cache: "no-store" })
             : Promise.resolve(new Response(JSON.stringify({}), { headers: { "Content-Type": "application/json" } })),
           userModulesRef.current.includes("fund-request")
-            ? fetch(`/api/fund-request/filtered?orgId=${orgId}`)
+            ? fetch(`/api/fund-request/filtered?orgId=${orgId}`, { cache: "no-store" })
             : Promise.resolve(new Response(JSON.stringify({ data: [] }), { headers: { "Content-Type": "application/json" } })),
           userModulesRef.current.includes("receivables")
-            ? fetch(`/api/receivable/dashboard/filtered?orgId=${orgId}`)
+            ? fetch(`/api/receivable/dashboard/filtered?orgId=${orgId}`, { cache: "no-store" })
             : Promise.resolve(new Response(JSON.stringify({ data: [] }), { headers: { "Content-Type": "application/json" } })),
           userModulesRef.current.includes("employees")
-            ? fetch(`/api/employee/dashboard?orgId=${orgId}`)
+            ? fetch(`/api/employee/dashboard?orgId=${orgId}`, { cache: "no-store" })
             : Promise.resolve(new Response(JSON.stringify({}), { headers: { "Content-Type": "application/json" } })),
           userModulesRef.current.includes("clients")
-            ? fetch(`/api/client/dashboard?orgId=${orgId}`)
+            ? fetch(`/api/client/dashboard?orgId=${orgId}`, { cache: "no-store" })
             : Promise.resolve(new Response(JSON.stringify({}), { headers: { "Content-Type": "application/json" } })),
           userModulesRef.current.includes("tenders")
-            ? fetch(`/api/tender/dashboard?orgId=${orgId}`)
+            ? fetch(`/api/tender/dashboard?orgId=${orgId}`, { cache: "no-store" })
             : Promise.resolve(new Response(JSON.stringify({}), { headers: { "Content-Type": "application/json" } })),
           userModulesRef.current.includes("users")
-            ? fetch(`/api/user/dashboard?orgId=${orgId}`)
+            ? fetch(`/api/user/dashboard?orgId=${orgId}`, { cache: "no-store" })
             : Promise.resolve(new Response(JSON.stringify({}), { headers: { "Content-Type": "application/json" } })),
           userModulesRef.current.includes("organizations")
-            ? fetch(`/api/organization/dashboard?orgId=${orgId}`)
+            ? fetch(`/api/organization/dashboard?orgId=${orgId}`, { cache: "no-store" })
             : Promise.resolve(new Response(JSON.stringify({}), { headers: { "Content-Type": "application/json" } })),
         ]);
 
@@ -263,14 +269,21 @@ export default function DashboardPage() {
 
         const sortedReceivables = (
           getArrayData(filteredReceivableData) as ReceivableItem[]
-        ).sort(
-          (a, b) =>
-            new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime(),
-        );
+        )
+          .filter(
+            (item) =>
+              item.balanceReceivableAmount > 0 && item.status !== "Received",
+          )
+          .sort((a, b) => {
+            if (!a.dueDate) return 1;
+            if (!b.dueDate) return -1;
+            return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+          });
 
         setPendingReceivables(sortedReceivables);
       } finally {
         if (isMounted) {
+          hasLoadedDashboard.current = true;
           setLoading(false);
         }
       }
@@ -278,10 +291,22 @@ export default function DashboardPage() {
 
     fetchDashboard();
 
+    const interval = setInterval(fetchDashboard, 30000);
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        fetchDashboard();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
     return () => {
       isMounted = false;
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [status, orgId]);
+  }, [status, orgId, userModulesKey]);
 
   if (status === "loading" || loading) {
     return (
@@ -395,7 +420,7 @@ export default function DashboardPage() {
                 <StatItem
                   icon={PauseCircle}
                   label="Suspended"
-                  value={workOrders?.totalOverdueWorkOrders || 0}
+                  value={workOrders?.totalSuspendedWorkOrders || 0}
                   color="bg-red-500"
                 />
               </>
@@ -500,6 +525,30 @@ export default function DashboardPage() {
                   value={tenderStats?.totalActive || 0}
                   color="bg-green-600"
                 />
+                <StatItem
+                  icon={Clock3}
+                  label="Pending"
+                  value={tenderStats?.pendingTenders || 0}
+                  color="bg-amber-500"
+                />
+                <StatItem
+                  icon={BadgeCheck}
+                  label="L1"
+                  value={tenderStats?.l1Tenders || 0}
+                  color="bg-emerald-600"
+                />
+                <StatItem
+                  icon={BadgeCheck}
+                  label="L2"
+                  value={tenderStats?.l2Tenders || 0}
+                  color="bg-blue-600"
+                />
+                <StatItem
+                  icon={AlertTriangle}
+                  label="Lost"
+                  value={tenderStats?.lostTenders || 0}
+                  color="bg-red-500"
+                />
               </>
             ),
           },
@@ -601,7 +650,7 @@ export default function DashboardPage() {
                     >
                       <div>
                         <p className="font-semibold text-slate-800">
-                          {item.frNumber}
+                          {item.frNo}
                         </p>
 
                         <p className="text-sm text-slate-500">
@@ -701,7 +750,9 @@ export default function DashboardPage() {
 
                   <div className="mt-3 flex items-center gap-2 text-sm text-red-600">
                     <Clock3 className="h-4 w-4" />
-                    Due Date: {new Date(item.dueDate).toLocaleDateString()}
+                    Due Date: {item.dueDate
+                      ? new Date(item.dueDate).toLocaleDateString()
+                      : "No due date"}
                   </div>
                 </div>
               ))}

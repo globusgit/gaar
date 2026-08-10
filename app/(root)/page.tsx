@@ -13,9 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useState, useEffect } from "react";
 import { signIn, signOut, useSession } from "next-auth/react";
-import { Poppins } from "next/font/google";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
 import {
   User,
   Lock,
@@ -26,13 +24,10 @@ import {
   Building2,
   FileText,
   Users,
+  Clock3,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-const poppins = Poppins({
-  subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700"],
-});
+import { toast } from "sonner";
 
 export default function SignIn() {
   const { data: session, status } = useSession();
@@ -43,12 +38,14 @@ export default function SignIn() {
   });
   const [loading, setLoading] = useState(false);
   const [passwordChanged, setPasswordChanged] = useState(false);
+  const [idleLogout, setIdleLogout] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     setPasswordChanged(params.get("passwordChanged") === "1");
+    setIdleLogout(params.get("reason") === "idle");
   }, []);
 
   useEffect(() => {
@@ -62,7 +59,7 @@ export default function SignIn() {
       }
 
       const modules = session.user.modules || [];
-      if (role === "SYS_ADMIN") {
+      if (role === "SYS_ADMIN" || role === "ADMIN") {
         router.replace("/dashboard");
         return;
       }
@@ -78,10 +75,11 @@ export default function SignIn() {
         "tenders": "/tenders",
         "organizations": "/organizations",
         "users": "/users",
+        "ai": "/ai",
         "settings": "/settings",
-        "master-lists": "/master-lists",
-        "system-settings": "/system-settings",
-        "audit-logs": "/audit-logs",
+        "master-lists": "/settings/master-lists",
+        "system-settings": "/settings/system",
+        "audit-logs": "/settings/audit-logs",
       };
 
       const order = [
@@ -95,6 +93,7 @@ export default function SignIn() {
         "tenders",
         "organizations",
         "users",
+        "ai",
         "settings",
         "master-lists",
         "system-settings",
@@ -139,7 +138,7 @@ export default function SignIn() {
   if (status === "loading") {
     return (
       <div
-        className={`${poppins.className} min-h-screen flex items-center justify-center bg-slate-50`}
+        className="min-h-screen flex items-center justify-center bg-slate-50"
       >
         <div className="flex flex-col items-center gap-4">
           <div className="h-12 w-12 animate-spin rounded-full border-4 border-cyan-700 border-t-transparent" />
@@ -152,7 +151,7 @@ export default function SignIn() {
   }
 
   return (
-    <div className={`${poppins.className} min-h-screen flex`}>
+    <div className="min-h-screen flex">
       {/* Left Branding Panel */}
       <div className="hidden lg:flex lg:w-5/12 xl:w-1/2 bg-gradient-to-br from-cyan-950 via-cyan-900 to-teal-900 relative overflow-hidden">
         {/* Decorative background patterns */}
@@ -193,14 +192,14 @@ export default function SignIn() {
                   GAAR
                 </h1>
                 <p className="text-xs text-cyan-300/80 font-medium tracking-wider uppercase">
-                  Government Portal
+                  GlobusIT Portal
                 </p>
               </div>
             </div>
 
             <div className="space-y-6">
               <h2 className="text-4xl xl:text-5xl font-bold text-white leading-tight">
-                Government Accounts
+                GlobusIT Accounts
                 <br />
                 <span className="text-cyan-300">& Audit Reporting</span>
               </h2>
@@ -259,7 +258,7 @@ export default function SignIn() {
             <div>
               <h1 className="text-xl font-bold text-slate-900">GAAR</h1>
               <p className="text-xs text-slate-500 font-medium">
-                Government Portal
+                GlobusIT Portal
               </p>
             </div>
           </div>
@@ -287,6 +286,15 @@ export default function SignIn() {
                 </div>
               )}
 
+              {idleLogout && (
+                <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 flex items-start gap-3">
+                  <Clock3 className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
+                  <p className="text-sm text-amber-800 font-medium">
+                    You were signed out after 10 minutes of inactivity.
+                  </p>
+                </div>
+              )}
+
               {error && (
                 <div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 flex items-start gap-3">
                   <Shield className="h-5 w-5 text-red-600 mt-0.5 shrink-0" />
@@ -308,6 +316,7 @@ export default function SignIn() {
                     </div>
                     <Input
                       id="username"
+                      name="username"
                       value={form.username}
                       onChange={(e) =>
                         setForm({ ...form, username: e.target.value })
@@ -329,12 +338,13 @@ export default function SignIn() {
                     >
                       Password
                     </Label>
-                    <a
-                      href="#"
+                    <button
+                      type="button"
+                      onClick={() => toast.info("Contact your organization administrator to reset your password.")}
                       className="text-xs font-semibold text-cyan-700 hover:text-cyan-800 transition-colors"
                     >
                       Forgot password?
-                    </a>
+                    </button>
                   </div>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
@@ -342,6 +352,7 @@ export default function SignIn() {
                     </div>
                     <Input
                       id="password"
+                      name="password"
                       type={showPassword ? "text" : "password"}
                       value={form.password}
                       onChange={(e) =>

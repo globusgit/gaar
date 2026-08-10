@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { USER_MODULES } from "@/lib/userModules";
 
 const UserSchema = new mongoose.Schema(
     {
@@ -15,6 +16,9 @@ const UserSchema = new mongoose.Schema(
         employeeName:{
             type: String,
             required: true,
+        },
+        photo: {
+            type: String,
         },
         status:{
             type: String,
@@ -37,22 +41,7 @@ const UserSchema = new mongoose.Schema(
         },
         modules: [{
             type: String,
-            enum: [
-                "dashboard",
-                "fund-request",
-                "payments",
-                "receivables",
-                "employees",
-                "clients",
-                "work-orders",
-                "tenders",
-                "organizations",
-                "users",
-                "settings",
-                "master-lists",
-                "system-settings",
-                "audit-logs"
-            ]
+            enum: USER_MODULES
         }]
     },
     {timestamps: true}

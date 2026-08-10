@@ -13,21 +13,17 @@ export async function GET(req){
         const {searchParams} = new URL(req.url);
         const country = searchParams.get('country')?.trim() || "";
 
-        const countryStates = await CountryInfo.distinct("state",{country});
+        const countryStates = await CountryInfo.distinct("state", { country });
 
-        const states = countryStates.map((state,index)=>{
+        const states = countryStates
+          .filter((state) => state && state.trim())
+          .map((state, index) => {
             return {
-                id: index+1,
-                state
+              id: index + 1,
+              state,
             };
-        })
+          });
 
- /*       const states = countryStates.map((state)=>{
-            return {
-                state
-            };
-        })
-*/
         return NextResponse.json(states);
 
     }catch(err){

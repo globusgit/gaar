@@ -40,9 +40,10 @@ interface Props {
   orgId: string;
   value?: string;
   onSelect: (tender: Tender) => void;
+  disabled?: boolean;
 }
 
-export default function TenderSearchCBx({ orgId, value, onSelect }: Props) {
+export default function TenderSearchCBx({ orgId, value, onSelect, disabled }: Props) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [tenders, setTenders] = useState<Tender[]>([]);
@@ -81,6 +82,7 @@ export default function TenderSearchCBx({ orgId, value, onSelect }: Props) {
           variant="outline"
           role="combobox"
           className="w-full justify-between"
+          disabled={disabled}
         >
           {value || "Search Tender..."}
 
@@ -88,7 +90,7 @@ export default function TenderSearchCBx({ orgId, value, onSelect }: Props) {
         </Button>
       </PopoverTrigger>
 
-      <PopoverContent className="w-[600px] p-0" align="start">
+      <PopoverContent className="w-[calc(100vw-2rem)] max-w-[600px] p-0" align="start">
         <Command shouldFilter={false}>
           <CommandInput
             placeholder="Search Tender No, Description, Client..."

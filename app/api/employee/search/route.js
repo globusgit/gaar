@@ -21,7 +21,7 @@ export async function GET(req) {
     if (search) {
       query.$or = [
         { name: { $regex: search, $options: "i" } },
-        { employeeId: { $regex: search, $options: "i" } },
+        { empId: { $regex: search, $options: "i" } },
         { email: { $regex: search, $options: "i" } },
         { phone: { $regex: search, $options: "i" } }
       ]

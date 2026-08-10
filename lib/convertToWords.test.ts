@@ -2,8 +2,8 @@ import { describe, it, expect } from "vitest";
 import { convertToWords } from "@/lib/convertToWords";
 
 describe("convertToWords", () => {
-  it("converts zero to empty string", () => {
-    expect(convertToWords(0)).toBe("");
+  it("converts zero to Zero Rupees Only", () => {
+    expect(convertToWords(0)).toBe("Zero Rupees Only");
   });
 
   it("converts single digit numbers", () => {
@@ -42,8 +42,8 @@ describe("convertToWords", () => {
   });
 
   it("returns empty string for null/undefined", () => {
-    expect(convertToWords(null as any)).toBe("");
-    expect(convertToWords(undefined as any)).toBe("");
+    expect(convertToWords(null as unknown as number)).toBe("");
+    expect(convertToWords(undefined as unknown as number)).toBe("");
     expect(convertToWords("")).toBe("");
   });
 });

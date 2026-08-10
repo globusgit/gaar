@@ -29,7 +29,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import router from "next/router";
 import { useSession } from "next-auth/react";
 import {
   HoverCard,
@@ -67,7 +66,6 @@ export default function TenderListingPage() {
 
   const [hoveredTender, setHoveredTender] = useState<Tender | null>(null);
 
-  // client side search
   const [search, setSearch] = useState("");
 
   async function fetchTenders() {
@@ -76,7 +74,7 @@ export default function TenderListingPage() {
       setLoading(true);
 
       const res = await fetch(
-        `/api/tender?page=${page}&limit=${limit}&orgId=${orgId}`,
+        `/api/tender?page=${page}&limit=${limit}&search=${search}&orgId=${orgId}`,
       );
 
       const json = await res.json();
@@ -92,23 +90,27 @@ export default function TenderListingPage() {
   }
 
   useEffect(() => {
-    fetchTenders();
-  }, [page, limit]);
+    if (session?.user?.orgId) {
+      fetchTenders();
+    }
+  }, [page, limit, search, session]);
 
-  // client side search filter
-  const filteredData = useMemo(() => {
-    return data.filter((item) => {
-      const value = search.toLowerCase();
-
-      return (
-        item.tenderNo?.toLowerCase().includes(value) ||
-        item.description?.toLowerCase().includes(value) ||
-        item.client?.toLowerCase().includes(value) ||
-        item.status?.toLowerCase().includes(value) ||
-        item.position?.toLowerCase().includes(value)
-      );
-    });
-  }, [data, search]);
+  const exportExcel = async () => {
+    try {
+      const orgId = session?.user?.orgId;
+      if (!orgId) return;
+      const res = await fetch(`/api/tender/export?orgId=${orgId}`);
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "tenders.xlsx";
+      a.click();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Export failed", err);
+    }
+  };
 
   return (
     <div className="space-y-6 *:px-0 md:px-4 lg:px-8">
@@ -152,7 +154,7 @@ export default function TenderListingPage() {
           </Select>
 
           {/* Export */}
-          <Button variant="outline">
+          <Button variant="outline" onClick={exportExcel}>
             <Download className="h-4 w-4 mr-2" />
             Export Excel
           </Button>
@@ -197,8 +199,8 @@ export default function TenderListingPage() {
                   Loading...
                 </TableCell>
               </TableRow>
-            ) : filteredData.length ? (
-              filteredData.map((item) => (
+            ) : data.length ? (
+              data.map((item) => (
                 <TableRow
                   key={item._id}
                   onMouseEnter={() => setHoveredTender(item)}
@@ -268,7 +270,7 @@ export default function TenderListingPage() {
                     <HoverCardContent
                       side="right"
                       align="start"
-                      className="w-[500px] rounded-xl border shadow-2xl bg-white"
+                      className="w-[calc(100vw-2rem)] max-w-[500px] rounded-xl border bg-white shadow-2xl"
                     >
                       <TenderPreview tender={item} />
                     </HoverCardContent>

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import connectDB from "@/lib/mongoose";
 import PaymentInfo from "@/models/PaymentInfo";
+import Employee from "@/models/Employee";
 import { requireAuth, sanitizeSortField } from "@/lib/apiGuard";
 
 export async function GET(req) {
@@ -20,6 +21,22 @@ export async function GET(req) {
   const skip = (page - 1) * limit;
 
   let query = { orgId: token.orgId };
+
+  if (token.role !== "ADMIN" && token.role !== "SYS_ADMIN") {
+    const employee = await Employee.findOne({
+      $or: [
+        { empId: token.username },
+        { phone: token.username },
+      ],
+      orgId: token.orgId,
+    }).lean();
+
+    if (employee) {
+      query.requestedById = employee._id;
+    } else {
+      query.requestedById = null;
+    }
+  }
 
   const status = searchParams.get("status") || "";
 

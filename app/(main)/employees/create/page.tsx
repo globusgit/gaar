@@ -21,6 +21,7 @@ type FormData = {
   managerId: string;
   managerName: string;
   modules: string[];
+  orgId: string;
 };
 
 type SystemListItem = {
@@ -28,10 +29,17 @@ type SystemListItem = {
   listItem: string;
 };
 
+type OrgOption = {
+  _id: string;
+  orgName: string;
+  orgId: string;
+};
+
 export default function CreateEmployee() {
   const router = useRouter();
   const { data: session } = useSession();
   const orgId = session?.user?.orgId || "";
+  const role = session?.user?.role || "";
 
   const [form, setForm] = useState<FormData>(() => ({
     name: "",
@@ -43,6 +51,7 @@ export default function CreateEmployee() {
     managerId: "",
     managerName: "",
     modules: [],
+    orgId: orgId,
   }));
 
   const [errors, setErrors] = useState<Record<string, boolean>>({});
@@ -50,6 +59,7 @@ export default function CreateEmployee() {
   const [photo, setPhoto] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string>("");
   const [designations, setDesignations] = useState<SystemListItem[]>([]);
+  const [organizations, setOrganizations] = useState<OrgOption[]>([]);
   const [loading, setLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
@@ -85,7 +95,18 @@ export default function CreateEmployee() {
     };
 
     fetchDesignation();
-  }, [orgId]);
+
+    const isAdmin = role === "SYS_ADMIN" || role === "ADMIN";
+    if (isAdmin) {
+      fetch("/api/organization").then((res) => {
+        if (res.ok) return res.json();
+        return [];
+      }).then((data) => {
+        const orgs = Array.isArray(data?.data) ? data.data : [];
+        setOrganizations(orgs);
+      }).catch(() => setOrganizations([]));
+    }
+  }, [orgId, role]);
 
   useEffect(() => {
     if (!photo) {
@@ -137,7 +158,7 @@ export default function CreateEmployee() {
         }
       });
 
-      formData.append("orgId", orgId);
+      formData.append("orgId", form.orgId);
       if (photo) formData.append("photo", photo);
 
       const res = await fetch("/api/employee", {
@@ -164,6 +185,7 @@ export default function CreateEmployee() {
         managerId: "",
         managerName: "",
         modules: [],
+        orgId: "",
       });
       setPhoto(null);
       setPhotoPreview("");
@@ -284,6 +306,30 @@ export default function CreateEmployee() {
               />
             </FormField>
 
+            {organizations.length > 0 && (
+              <FormField
+                label="Organization"
+                required
+                error={errors.orgId ? "* This is Mandatory" : undefined}
+              >
+                <FormSelect
+                  label="Organization"
+                  value={form.orgId}
+                  onValueChange={(value) => {
+                    setForm({ ...form, orgId: value });
+                    if (errors.orgId) setErrors({ ...errors, orgId: false });
+                  }}
+                  options={organizations.map((o) => ({
+                    value: o.orgId,
+                    label: o.orgName,
+                  }))}
+                  placeholder="Select organization"
+                  required
+                  error={errors.orgId ? "* This is Mandatory" : undefined}
+                />
+              </FormField>
+            )}
+
             <FormSelect
               label="Designation"
               value={form.designation}
@@ -367,6 +413,7 @@ export default function CreateEmployee() {
               </label>
               <EmployeeSearch
                 placeholder="Search manager..."
+                value={form.managerName}
                 fetchUrl={fetchManagerUrl}
                 displayField="employeeName"
                 error={!!errors.managerName}

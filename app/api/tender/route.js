@@ -88,6 +88,12 @@ export async function POST(req) {
 
     return NextResponse.json({ message: "Success!", data: createdTender }, { status: 201 });
   } catch (err) {
+    if (err.code === 11000) {
+      return NextResponse.json(
+        { message: "Tender with this number already exists!" },
+        { status: 400 },
+      );
+    }
     return NextResponse.json(
       { message: "Something went wrong!" },
       { status: 500 },
@@ -107,10 +113,27 @@ export async function GET(req) {
     const page = parseInt(searchParams.get("page")) || 1;
     const limit = parseInt(searchParams.get("limit")) || 20;
     const skip = (page - 1) * limit;
+    const search = searchParams.get("search") || "";
+
+    const query = { orgId };
+
+    if (search) {
+      const escapedSearch = sanitizeRegex(search);
+      query.$or = [
+        { tenderNo: { $regex: escapedSearch, $options: "i" } },
+        { description: { $regex: escapedSearch, $options: "i" } },
+        { client: { $regex: escapedSearch, $options: "i" } },
+        { status: { $regex: escapedSearch, $options: "i" } },
+        { position: { $regex: escapedSearch, $options: "i" } },
+        { tenderingDepartment: { $regex: escapedSearch, $options: "i" } },
+        { vertical: { $regex: escapedSearch, $options: "i" } },
+        { subVertical: { $regex: escapedSearch, $options: "i" } },
+      ];
+    }
 
     const [tenders, total] = await Promise.all([
-      TenderInfo.find({ orgId }).skip(skip).limit(limit),
-      TenderInfo.countDocuments({ orgId }),
+      TenderInfo.find(query).skip(skip).limit(limit),
+      TenderInfo.countDocuments(query),
     ]);
 
     return NextResponse.json(

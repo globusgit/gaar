@@ -63,9 +63,7 @@ export default function ClientsPage() {
     ],
     queryFn: async () => {
       const res = await fetch(
-        `/api/client?orgId=${session?.user?.orgId}&page=${
-          page + 1
-        }&limit=${pageSize}&search=${search}&sortField=${sortField}&sortOrder=${sortOrder}`,
+        `/api/client?orgId=${session?.user?.orgId}&page=${page}&limit=${pageSize}&search=${search}&sortField=${sortField}&sortOrder=${sortOrder}`,
       );
 
       if (!res.ok) throw new Error("Failed to fetch clients");

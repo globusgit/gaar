@@ -1,5 +1,6 @@
 import { connectDB } from "@/lib/mongoose";
 import PaymentInfo from "@/models/PaymentInfo";
+import Employee from "@/models/Employee";
 import * as XLSX from "xlsx";
 import { requireAuth, sanitizeRegex } from "@/lib/apiGuard";
 
@@ -14,13 +15,29 @@ export async function GET(req) {
 
   let query = { orgId: token.orgId };
 
+  if (token.role !== "ADMIN" && token.role !== "SYS_ADMIN") {
+    const employee = await Employee.findOne({
+      $or: [
+        { empId: token.username },
+        { phone: token.username },
+      ],
+      orgId: token.orgId,
+    }).lean();
+
+    if (employee) {
+      query.requestedById = employee._id;
+    } else {
+      query.requestedById = null;
+    }
+  }
+
   if (search && search.length >= 3) {
     const escapedSearch = sanitizeRegex(search);
     query.$or = [
       { description: { $regex: escapedSearch, $options: "i" } },
       { status: { $regex: escapedSearch, $options: "i" } },
       { requestedBy: { $regex: escapedSearch, $options: "i" } },
-      { priority: { $regex: escapedSearch, $options: "i" } },
+      { paymentPriority: { $regex: escapedSearch, $options: "i" } },
       { vertical: { $regex: escapedSearch, $options: "i" } },
       { state: { $regex: escapedSearch, $options: "i" } },
     ];

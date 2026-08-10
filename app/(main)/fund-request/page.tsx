@@ -1,12 +1,21 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 
 import { useSession } from "next-auth/react";
 
+import PageHeader from "@/app/_components/PageHeader";
+
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 import DataTable, { ColumnDef } from "@/app/_components/DataTable";
 import { Pencil } from "lucide-react";
@@ -33,10 +42,22 @@ export default function FundRequestList() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
+  const isAdmin = session?.user?.role === "ADMIN" || session?.user?.role === "SYS_ADMIN";
+  const [scope, setScope] = useState<"all" | "mine">(isAdmin ? "all" : "mine");
 
   const [sortField, setSortField] = useState("createdAt");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const orgId = session?.user?.orgId;
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+      setPage(1);
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, [search]);
 
   const handleSort = (field: string) => {
     if (sortField === field) {
@@ -58,10 +79,10 @@ export default function FundRequestList() {
     data: queryResult,
     isLoading,
   } = useQuery({
-    queryKey: ["fund-requests", orgId, page, limit, search, sortField, sortOrder],
+    queryKey: ["fund-requests", orgId, page, limit, debouncedSearch, sortField, sortOrder, scope],
     queryFn: async () => {
       const res = await fetch(
-        `/api/fund-request?orgId=${orgId}&page=${page}&limit=${limit}&search=${search}&sortField=${sortField}&sortOrder=${sortOrder}`,
+        `/api/fund-request?orgId=${orgId}&page=${page}&limit=${limit}&search=${debouncedSearch}&sortField=${sortField}&sortOrder=${sortOrder}&scope=${scope}`,
       );
 
       if (!res.ok) throw new Error("Failed to fetch fund requests");
@@ -146,37 +167,54 @@ export default function FundRequestList() {
   ];
 
   return (
-    <DataTable
-      data={data}
-      loading={isLoading}
-      columns={columns}
-      page={page}
-      totalPages={totalPages}
-      totalRecords={totalRecords}
-      onPageChange={setPage}
-      limit={limit}
-      onLimitChange={setLimit}
-      searchValue={search}
-      onSearchChange={setSearch}
-      searchPlaceholder="Search..."
-      onCreate={() => router.push("/fund-request/create")}
-      createLabel="FR"
-      onExport={handleExport}
-      sortField={sortField}
-      sortOrder={sortOrder}
-      onSort={handleSort}
-      renderActions={(row) => (
-        <Button
-          variant="ghost"
-          size="icon"
-          className="text-orange-500 hover:text-orange-700"
-          onClick={() => router.push(`/fund-request/${row._id}`)}
-        >
-          <Pencil className="h-4 w-4" />
-        </Button>
-      )}
-      emptyMessage="No Data Found"
-      title="Fund Requests"
-    />
+    <div className="space-y-4 *:px-0 md:px-4 lg:px-8">
+      <div className="flex items-center justify-between">
+        <PageHeader title="Fund Requests" />
+        {isAdmin && (
+          <Select value={scope} onValueChange={(value) => { setScope(value as "all" | "mine"); setPage(1); }}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Select scope" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Fund Requests</SelectItem>
+              <SelectItem value="mine">My Fund Requests</SelectItem>
+            </SelectContent>
+          </Select>
+        )}
+      </div>
+
+      <DataTable
+        data={data}
+        loading={isLoading}
+        columns={columns}
+        page={page}
+        totalPages={totalPages}
+        totalRecords={totalRecords}
+        onPageChange={setPage}
+        limit={limit}
+        onLimitChange={setLimit}
+        searchValue={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Search..."
+        onCreate={() => router.push("/fund-request/create")}
+        createLabel="FR"
+        onExport={handleExport}
+        sortField={sortField}
+        sortOrder={sortOrder}
+        onSort={handleSort}
+        renderActions={(row) => (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="text-orange-500 hover:text-orange-700"
+            onClick={() => router.push(`/fund-request/${row._id}`)}
+          >
+            <Pencil className="h-4 w-4" />
+          </Button>
+        )}
+        emptyMessage="No Data Found"
+        title=""
+      />
+    </div>
   );
 }

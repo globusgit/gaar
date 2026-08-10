@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import connectDB from "@/lib/mongoose";
 import FundRequest from "@/models/FundRequest";
+import Employee from "@/models/Employee";
 import { requireAuth } from "@/lib/apiGuard";
 
 export async function GET(req, res) {
@@ -19,6 +20,31 @@ export async function GET(req, res) {
     if (status) {
       filter.status = status;
     }
+
+    if (!["ADMIN", "SYS_ADMIN", "MANAGER"].includes(token.role)) {
+      const employee = await Employee.findOne({
+        $or: [
+          { empId: token.username },
+          { phone: token.username },
+        ],
+        orgId: token.orgId,
+      }).lean();
+
+      if (!employee) {
+        return NextResponse.json(
+          {
+            data: [],
+            page,
+            limit,
+            total: 0,
+            totalPages: 0,
+          },
+          { status: 200 },
+        );
+      }
+      filter.requestedById = employee._id;
+    }
+
     const [fundRequests, total] = await Promise.all([
       FundRequest.find(filter).skip(skip).limit(limit),
       FundRequest.countDocuments(filter),

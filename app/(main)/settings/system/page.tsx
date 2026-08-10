@@ -15,7 +15,7 @@ import { Label } from "@/components/ui/label";
 
 export default function SystemSettingsPage() {
   const { data: session } = useSession();
-  const isSysAdmin = session?.user?.role === "SYS_ADMIN";
+  const isSysAdmin = session?.user?.role === "SYS_ADMIN" || session?.user?.role === "ADMIN";
   const orgId = session?.user?.orgId || "GLOBAL";
 
   const [settings, setSettings] = useState({

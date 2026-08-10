@@ -8,7 +8,7 @@ import path from "path";
 import { EMPLOYEE_UPLOAD_DIR } from "@/lib/uploadConfig";
 import { logActivity } from "@/lib/activityLog";
 import { notifyOrg } from "@/lib/notification";
-import { requireAuth, requireOrgScope, sanitizeRegex, sanitizeSortField } from "@/lib/apiGuard";
+import { requireAuth, requireOrgScope, sanitizeRegex, sanitizeSortField, hasModuleAccess, canAssignRole } from "@/lib/apiGuard";
 
 const ALL_MODULES = [
   "dashboard",
@@ -21,6 +21,7 @@ const ALL_MODULES = [
   "receivables",
   "organizations",
   "users",
+  "ai",
   "settings",
   "master-lists",
   "system-settings",
@@ -45,15 +46,23 @@ function getDefaultModules(role) {
         "receivables",
       ];
     case "ACCOUNTANT":
-      return ["dashboard", "payments", "receivables", "fund-request"];
+      return [
+        "dashboard",
+        "employees",
+        "clients",
+        "work-orders",
+        "fund-request",
+        "payments",
+        "receivables",
+      ];
     case "ORG_USER":
-      return ["dashboard", "fund-request", "users", "settings"];
+      return ALL_MODULES;
     default:
       return ["dashboard", "fund-request", "settings"];
   }
 }
 
-function getSafeFileName(originalName: string): string {
+function getSafeFileName(originalName) {
   const base = path.basename(originalName).replace(/\s+/g, "_");
   const timestamp = Date.now();
   const ext = path.extname(base);
@@ -101,6 +110,10 @@ export async function POST(req) {
   const token = await requireAuth(req);
   if (token instanceof Response) return token;
 
+  if (!hasModuleAccess(token, "employees")) {
+    return NextResponse.json({ message: "Forbidden: Employees module required" }, { status: 403 });
+  }
+
   try {
     await connectDB();
     const formData = await req.formData();
@@ -108,25 +121,39 @@ export async function POST(req) {
 
     let fileName = "default-avatar.jpg";
     if (file && typeof file !== "string") {
-      if (!fs.existsSync(EMPLOYEE_UPLOAD_DIR)) {
-        fs.mkdirSync(EMPLOYEE_UPLOAD_DIR, { recursive: true });
+      if (!fs.existsSync(/* turbopackIgnore: true */ EMPLOYEE_UPLOAD_DIR)) {
+        fs.mkdirSync(/* turbopackIgnore: true */ EMPLOYEE_UPLOAD_DIR, { recursive: true });
       }
       fileName = getSafeFileName(file.name || "upload.jpg");
-      const filePath = path.join(EMPLOYEE_UPLOAD_DIR, fileName);
+      const filePath = path.join(/* turbopackIgnore: true */ EMPLOYEE_UPLOAD_DIR, fileName);
 
       const bytes = await file.arrayBuffer();
       const buffer = Buffer.from(bytes);
 
-      fs.writeFileSync(filePath, buffer);
+      fs.writeFileSync(/* turbopackIgnore: true */ filePath, buffer);
     }
 
     const modulesValue = formData.getAll("modules");
     const modules = modulesValue.filter(Boolean);
-    const orgId = token.orgId;
+    const requestedOrgId = formData.get("orgId");
+    const orgId = token.role === "SYS_ADMIN" && requestedOrgId
+      ? requestedOrgId
+      : token.orgId;
+
+    let requestedRole = "USER";
+    if (formData.get("isManager") === "true") requestedRole = "MANAGER";
+    if (formData.get("designation") === "Director") requestedRole = "ADMIN";
+    if (formData.get("designation") === "ACCOUNTANT") requestedRole = "ACCOUNTANT";
+    if (!canAssignRole(token, requestedRole)) {
+      return NextResponse.json(
+        { message: "You cannot create an employee with a role above your own authority" },
+        { status: 403 },
+      );
+    }
 
     const emp = await Employee.create({
       name: formData.get("name"),
-      empId: formData.get("employeeId"),
+      empId: (formData.get("employeeId") || "").toString().trim(),
       phone: formData.get("phone"),
       email: formData.get("email"),
       designation: formData.get("designation"),
@@ -147,16 +174,7 @@ export async function POST(req) {
         );
       }
       const hashedPws = await bcrypt.hash(defaultPassword, 10);
-      let roleName = "USER";
-      if (emp.isManager) {
-        roleName = "MANAGER";
-      }
-      if (emp.designation === "Director") {
-        roleName = "ADMIN";
-      }
-      if (emp.designation === "ACCOUNTANT") {
-        roleName = "ACCOUNTANT";
-      }
+      const roleName = requestedRole;
       const userModules = modules.length > 0 ? modules : getDefaultModules(roleName);
       const newUser = new User({
         username: (emp.empId || "").toString().trim(),
@@ -200,51 +218,69 @@ export async function POST(req) {
   }
 }
 
-export async function PUT(req, { params }) {
+export async function PUT(req) {
   const token = await requireAuth(req);
   if (token instanceof Response) return token;
 
+  if (!hasModuleAccess(token, "employees")) {
+    return NextResponse.json({ message: "Forbidden: Employees module required" }, { status: 403 });
+  }
+
   await connectDB();
 
-  const { id } = await params;
   const formData = await req.formData();
+  const id = formData.get("id");
+  if (!id) {
+    return NextResponse.json({ message: "Employee ID is required" }, { status: 400 });
+  }
 
-  const updateData: Record<string, unknown> = {
+  const updateData = {
     name: formData.get("name"),
-    employeeId: formData.get("employeeId"),
+    empId: (formData.get("employeeId") || "").toString().trim(),
     phone: formData.get("phone"),
     email: formData.get("email"),
     designation: formData.get("designation"),
     isManager: formData.get("isManager") === "true",
     managerName: formData.get("managerName"),
     managerObjId: formData.get("managerId"),
-    orgId: formData.get("orgId"),
   };
+
+  const requestedOrgId = formData.get("orgId");
+  if (requestedOrgId && token.role === "SYS_ADMIN") {
+    updateData.orgId = requestedOrgId;
+  }
 
   const file = formData.get("photo");
 
-  if (!file || typeof file === "string") {
-    return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
-  }
-
-  if (file && file.size > 0) {
-    if (!fs.existsSync(EMPLOYEE_UPLOAD_DIR)) {
-      fs.mkdirSync(EMPLOYEE_UPLOAD_DIR, { recursive: true });
+  if (file && typeof file !== "string" && file.size > 0) {
+    if (!fs.existsSync(/* turbopackIgnore: true */ EMPLOYEE_UPLOAD_DIR)) {
+      fs.mkdirSync(/* turbopackIgnore: true */ EMPLOYEE_UPLOAD_DIR, { recursive: true });
     }
 
     const safeName = getSafeFileName(file.name);
-    const fullPath = path.join(EMPLOYEE_UPLOAD_DIR, safeName);
+    const fullPath = path.join(/* turbopackIgnore: true */ EMPLOYEE_UPLOAD_DIR, safeName);
 
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
-    fs.writeFileSync(fullPath, buffer);
+    fs.writeFileSync(/* turbopackIgnore: true */ fullPath, buffer);
 
     updateData.photo = safeName;
   }
 
-  const updated = await Employee.findByIdAndUpdate(id, updateData, {
-    new: true,
+  const existing = await Employee.findOne({ _id: id, orgId: token.orgId });
+  if (!existing) {
+    return NextResponse.json(
+      { message: "Employee not found" },
+      { status: 404 },
+    );
+  }
+
+  const scope = await requireOrgScope(req, existing.orgId, token.orgId);
+  if (scope instanceof Response) return scope;
+
+  const updated = await Employee.findOneAndUpdate({ _id: id, orgId: token.orgId }, updateData, {
+    returnDocument: "after",
   });
 
   if (!updated) {
@@ -254,7 +290,7 @@ export async function PUT(req, { params }) {
     );
   }
 
-  const orgId = (formData.get("orgId") as string | null) || updated.orgId;
+  const orgId = updateData.orgId || existing.orgId;
 
   await logActivity({
     activity: "Employee Updated",

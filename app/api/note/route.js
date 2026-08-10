@@ -7,7 +7,7 @@ import FundRequest from "@/models/FundRequest";
 import Config from "@/models/Config";
 import Employee from "@/models/Employee";
 import Note from "@/models/Note";
-import { requireAuth } from "@/lib/apiGuard";
+import { requireAuth, sanitizeRegex, sanitizeSortField } from "@/lib/apiGuard";
 
 export async function GET(req) {
   try {
@@ -19,10 +19,17 @@ export async function GET(req) {
     const { searchParams } = new URL(req.url);
     const entityId = searchParams.get("entityId");
     const entityType = searchParams.get("entityType");
+    const sortField = sanitizeSortField(searchParams.get("sortField") || "createdAt");
+    const sortOrder = searchParams.get("sortOrder") === "asc" ? 1 : -1;
 
-    const noteList = await Note.find({ orgId: token.orgId, entityType, entityId }).sort({
-      createdAt: -1,
-    });
+    const query = { orgId: token.orgId };
+    if (entityId) query.entityId = entityId;
+    if (entityType) {
+      const escapedType = sanitizeRegex(entityType);
+      query.entityType = { $regex: escapedType, $options: "i" };
+    }
+
+    const noteList = await Note.find(query).sort({ [sortField]: sortOrder === 1 ? 1 : -1 });
     return NextResponse.json({ data: noteList }, { status: 200 });
   } catch (err) {
     return NextResponse.json(
@@ -41,8 +48,22 @@ export async function POST(req) {
   try {
     const body = await req.json();
 
+    if (!body.notes || !body.notes.trim()) {
+      return NextResponse.json(
+        { message: "Note content is required" },
+        { status: 400 }
+      );
+    }
+
+    if (!body.entityType || !body.entityId) {
+      return NextResponse.json(
+        { message: "entityType and entityId are required" },
+        { status: 400 }
+      );
+    }
+
     const data = {
-      notes: body.notes,
+      notes: body.notes.trim(),
       loggedBy: body.loggedBy,
       username: body.username,
       entityType: body.entityType,

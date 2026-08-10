@@ -95,7 +95,7 @@ export async function PATCH(req) {
     const notification = await Notification.findByIdAndUpdate(
       notificationId,
       { read: read ?? true },
-      { new: true }
+      { returnDocument: "after" }
     );
 
     if (!notification || notification.userId !== token.id || notification.orgId !== token.orgId) {

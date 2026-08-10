@@ -1,7 +1,7 @@
 # GAAR Project — Final Implementation Report
 
 **Date:** 2026-07-17  
-**Project:** GAAR (Government Accounts and Audit Reporting)  
+**Project:** GAAR (GlobusIT Accounts and Audit Reporting)
 **Stack:** Next.js 16, React 19, TypeScript, Tailwind v4, shadcn/ui, NextAuth v5, MongoDB
 
 ---

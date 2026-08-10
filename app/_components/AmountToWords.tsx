@@ -104,7 +104,8 @@ export default function AmountToWords({
     let words = numberToWordsIndian(rupees);
 
     if (paisePart && Number(paisePart) > 0) {
-      words += " And " + numberToWordsIndian(Number(paisePart)) + " Paise";
+      const paiseValue = Number(paisePart.padEnd(2, "0"));
+      words += " And " + numberToWordsIndian(paiseValue) + " Paise";
     }
 
     return words + " Only";

@@ -20,7 +20,7 @@ import { Shield } from "lucide-react";
 
 export default function AuditLogsPage() {
   const { data: session } = useSession();
-  const isSysAdmin = session?.user?.role === "SYS_ADMIN";
+  const isSysAdmin = session?.user?.role === "SYS_ADMIN" || session?.user?.role === "ADMIN";
   const isAdmin = session?.user?.role === "ADMIN";
   const orgId = session?.user?.orgId || "";
 

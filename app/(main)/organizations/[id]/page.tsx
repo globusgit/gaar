@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
+import { toast } from "sonner";
 
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -220,13 +221,16 @@ export default function EditOrganizationPage() {
       });
 
       if (!res.ok) {
-        throw new Error("Failed to update organization");
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.message || "Failed to update organization");
       }
 
+      toast.success("Organization updated successfully");
       router.push("/organizations");
       router.refresh();
     } catch (error) {
       console.error(error);
+      toast.error(error instanceof Error ? error.message : "Failed to update organization");
     } finally {
       setLoading(false);
     }
@@ -517,7 +521,7 @@ export default function EditOrganizationPage() {
           </div>
 
           {/* Buttons */}
-          <div className="md:col-span-2 flex gap-3 pt-4">
+          <div className="flex flex-col gap-3 pt-4 sm:flex-row md:col-span-2">
             <Button type="submit" disabled={loading}>
               {loading ? "Updating..." : "Update Organization"}
             </Button>

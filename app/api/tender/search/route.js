@@ -19,13 +19,13 @@ export async function GET(req) {
       orgId,
       $or: [
         {
-          tenderName: {
+          tenderNo: {
             $regex: safeSearchName,
             $options: "i",
           },
         },
         {
-          tenderNo: {
+          description: {
             $regex: safeSearchName,
             $options: "i",
           },
@@ -38,6 +38,24 @@ export async function GET(req) {
         },
         {
           tenderingDepartment: {
+            $regex: safeSearchName,
+            $options: "i",
+          },
+        },
+        {
+          status: {
+            $regex: safeSearchName,
+            $options: "i",
+          },
+        },
+        {
+          position: {
+            $regex: safeSearchName,
+            $options: "i",
+          },
+        },
+        {
+          owner: {
             $regex: safeSearchName,
             $options: "i",
           },

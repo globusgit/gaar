@@ -14,11 +14,25 @@ export async function GET(req) {
 
     const totalTenders = await TenderInfo.countDocuments({ orgId });
     const totalActive = await TenderInfo.countDocuments({ orgId, status: "Active" });
+    const pendingTenders = await TenderInfo.countDocuments({
+      orgId,
+      status: { $in: ["Submitted", "Draft", "Pending"] },
+    });
+    const l1Tenders = await TenderInfo.countDocuments({ orgId, position: "L1" });
+    const l2Tenders = await TenderInfo.countDocuments({ orgId, position: "L2" });
+    const lostTenders = await TenderInfo.countDocuments({
+      orgId,
+      status: "Lost",
+    });
 
     return NextResponse.json(
       {
         totalTenders,
         totalActive,
+        pendingTenders,
+        l1Tenders,
+        l2Tenders,
+        lostTenders,
       },
       { status: 200 }
     );

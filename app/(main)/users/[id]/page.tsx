@@ -18,7 +18,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 
 const ROLE_OPTIONS = ["ADMIN", "ORG_USER", "USER", "MANAGER", "ACCOUNTANT"];
-const STATUS_OPTIONS = ["Active", "InActive"];
+const STATUS_OPTIONS = ["Active", "Inactive", "Suspended"];
 
 const MODULE_OPTIONS = [
   { value: "dashboard", label: "Dashboard" },
@@ -31,6 +31,7 @@ const MODULE_OPTIONS = [
   { value: "receivables", label: "Receivables" },
   { value: "organizations", label: "Organizations" },
   { value: "users", label: "Users" },
+  { value: "ai", label: "AI Assistant" },
   { value: "settings", label: "Settings" },
   { value: "master-lists", label: "Master Lists" },
   { value: "system-settings", label: "System Settings" },
@@ -47,6 +48,7 @@ export default function EditUserPage() {
     role: "",
     status: "",
     modules: [] as string[],
+    isFirstLogin: false,
   });
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -63,7 +65,7 @@ export default function EditUserPage() {
     const loadUser = async () => {
       setLoading(true);
       try {
-        const res = await fetch(`/api/user/${params.id}`);
+        const res = await fetch(`/api/user/${params.id}`, { cache: "no-store" });
         const data = await res.json();
 
         setForm({
@@ -72,6 +74,7 @@ export default function EditUserPage() {
           role: data.role || "",
           status: data.status || "",
           modules: data.modules || [],
+          isFirstLogin: data.isFirstLogin || false,
         });
       } catch (err) {
         console.error(err);
@@ -172,15 +175,30 @@ export default function EditUserPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
                 <Label>UserName</Label>
-                <div className="text-sm font-medium px-3 py-2 border rounded-xl text-gray-500 bg-gray-50 w-md">
+                <div className="w-full rounded-xl border bg-gray-50 px-3 py-2 text-sm font-medium text-gray-500">
                   {form.username || "-"}
                 </div>
               </div>
 
               <div className="space-y-2">
                 <Label>EmpName</Label>
-                <div className="text-sm font-medium px-3 py-2 border rounded-xl text-gray-500 bg-gray-50 w-md">
+                <div className="w-full rounded-xl border bg-gray-50 px-3 py-2 text-sm font-medium text-gray-500">
                   {form.employeeName || "-"}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>First Login</Label>
+                <div className="w-full rounded-xl border px-3 py-2 text-sm font-medium">
+                  <span
+                    className={`inline-flex px-3 py-1 rounded-full text-xs font-medium ${
+                      form.isFirstLogin
+                        ? "bg-amber-100 text-amber-800"
+                        : "bg-gray-100 text-gray-600"
+                    }`}
+                  >
+                    {form.isFirstLogin ? "Pending" : "Completed"}
+                  </span>
                 </div>
               </div>
             </div>
@@ -195,7 +213,7 @@ export default function EditUserPage() {
                   value={form.role}
                   onValueChange={(v) => setForm({ ...form, role: v })}
                 >
-                  <SelectTrigger className="w-md">
+                  <SelectTrigger className="w-full">
                     <SelectValue placeholder="Select Role" />
                   </SelectTrigger>
                   <SelectContent>
@@ -214,7 +232,7 @@ export default function EditUserPage() {
                   value={form.status}
                   onValueChange={(v) => setForm({ ...form, status: v })}
                 >
-                  <SelectTrigger className="w-md">
+                  <SelectTrigger className="w-full">
                     <SelectValue placeholder="Select Status" />
                   </SelectTrigger>
                   <SelectContent>

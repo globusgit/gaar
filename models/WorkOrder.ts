@@ -5,7 +5,6 @@ const WorkOrderSchema = new mongoose.Schema(
     woNo: {
       type: String,
       required: true,
-      unique: true,
     },
     woTitle: {
       type: String,
@@ -65,6 +64,12 @@ const WorkOrderSchema = new mongoose.Schema(
     clientId: {
       type: String,
     },
+    projectManager: {
+      type: String,
+    },
+    scm: {
+      type: String,
+    },
     orgId: {
       type: String,
       required: true,
@@ -73,7 +78,7 @@ const WorkOrderSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-WorkOrderSchema.index({ orgId: 1, woNo: 1 });
+WorkOrderSchema.index({ orgId: 1, woNo: 1 }, { unique: true });
 WorkOrderSchema.index({ orgId: 1, status: 1 });
 WorkOrderSchema.index({ orgId: 1, createdAt: -1 });
 

@@ -15,6 +15,7 @@ interface UserRow {
   employeeName: string;
   role: string;
   status: string;
+  isFirstLogin: boolean;
 }
 
 export default function UserList() {
@@ -33,6 +34,7 @@ export default function UserList() {
     const fetchData = async () => {
       const res = await fetch(
         `/api/user/search?search=${search}&page=${page}&limit=${limit}&orgId=${orgId}`,
+        { cache: "no-store" }
       );
 
       const json = await res.json();
@@ -92,6 +94,21 @@ export default function UserList() {
           }`}
         >
           {value || "-"}
+        </span>
+      ),
+    },
+    {
+      key: "isFirstLogin",
+      label: "First Login",
+      render: (value) => (
+        <span
+          className={`px-3 py-1 rounded-full text-xs font-medium ${
+            value
+              ? "bg-amber-100 text-amber-800"
+              : "bg-gray-100 text-gray-600"
+          }`}
+        >
+          {value ? "Pending" : "Done"}
         </span>
       ),
     },

@@ -5,6 +5,9 @@ import { useSession } from "next-auth/react";
 import { useRouter, usePathname } from "next/navigation";
 
 const MODULE_MAP: Record<string, string> = {
+  "/settings/master-lists": "master-lists",
+  "/settings/system": "system-settings",
+  "/settings/audit-logs": "audit-logs",
   "/dashboard": "dashboard",
   "/fund-request": "fund-request",
   "/payments": "payments",
@@ -15,15 +18,9 @@ const MODULE_MAP: Record<string, string> = {
   "/tenders": "tenders",
   "/organizations": "organizations",
   "/users": "users",
+  "/ai": "ai",
   "/settings": "settings",
-  "/master-lists": "master-lists",
-  "/system-settings": "system-settings",
-  "/audit-logs": "audit-logs",
 };
-
-const SYS_ADMIN_ONLY = new Set(["/organizations", "/system-settings", "/audit-logs"]);
-
-const ADMIN_ONLY = new Set(["/users"]);
 
 function getModuleForPath(pathname: string): string | null {
   for (const [route, module] of Object.entries(MODULE_MAP)) {
@@ -44,34 +41,23 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
 
     const role = session.user.role;
     const modules = session.user.modules || [];
+    const isFirstLogin = session.user.isFirstLogin;
 
     if (pathname === "/") return;
 
-    if (pathname === "/organizations" && role !== "SYS_ADMIN") {
-      router.replace("/dashboard");
-      return;
-    }
-
-    if (pathname === "/system-settings" && role !== "SYS_ADMIN") {
-      router.replace("/dashboard");
-      return;
-    }
-
-    if (pathname === "/audit-logs" && role !== "SYS_ADMIN" && role !== "ADMIN") {
-      router.replace("/dashboard");
-      return;
-    }
-
-    if (pathname.startsWith("/users") && !["SYS_ADMIN", "ADMIN", "ORG_USER"].includes(role)) {
-      router.replace("/dashboard");
+    if (isFirstLogin && pathname !== "/settings/change-password") {
+      router.replace("/settings/change-password");
       return;
     }
 
     const requiredModule = getModuleForPath(pathname);
-    if (requiredModule && role !== "SYS_ADMIN") {
-      if (!modules.includes(requiredModule)) {
-        router.replace("/dashboard");
-      }
+    if (
+      requiredModule && pathname !== "/dashboard" &&
+      role !== "SYS_ADMIN" &&
+      !modules.includes(requiredModule)
+    ) {
+      router.replace("/dashboard");
+      return;
     }
   }, [session, status, router, pathname]);
 

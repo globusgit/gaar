@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -10,6 +8,9 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import AmountToWords from "../AmountToWords";
 import Notes from "@/app/_components/Notes";
+
+import UserSearch from "@/app/_components/searches/UserSearch";
+import PaymentToSearch from "@/app/_components/searches/PaymentToSearch";
 
 import {
   Table,
@@ -26,6 +27,7 @@ import {
   IndianRupee,
   CheckCircle2,
   ShieldCheck,
+  FileText,
 } from "lucide-react";
 
 export default function PaymentForm({ id }: { id?: string }) {
@@ -43,9 +45,7 @@ export default function PaymentForm({ id }: { id?: string }) {
   const [paymentTypeList, setPaymentTypeList] = useState<any[]>([]);
   const [txnTypeList, setTxnTypeList] = useState<any[]>([]);
 
-  const [userResults, setUserResults] = useState<any[]>([]);
   const [showTxnForm, setShowTxnForm] = useState(false);
-  const [payToResults, setPayToResults] = useState<any[]>([]);
 
   const [transactions, setTransactions] = useState<any[]>([]);
   const [txnForm, setTxnForm] = useState<any>({
@@ -58,6 +58,10 @@ export default function PaymentForm({ id }: { id?: string }) {
     transactionNote: "",
     orgId: "",
   });
+  const [docs, setDocs] = useState<
+    { _id: string; fileName: string; filePath: string; fileType: string }[]
+  >([]);
+
   const isAuthorized = form?.isAuthorized;
   const isPaid = form?.status === "Paid";
   const isBalanceZero = Number(form?.balanceAmount) <= 0;
@@ -76,24 +80,6 @@ export default function PaymentForm({ id }: { id?: string }) {
     const data = await res.json();
 
     return data?.data || [];
-  };
-
-  const searchUsers = async (query: string) => {
-    if (!query) return setUserResults([]);
-
-    const res = await fetch(`/api/user/search?q=${query}&orgId=${orgId}`);
-    const data = await res.json();
-
-    setUserResults(data || []);
-  };
-  /** Search for Client or Employee to make a payment */
-  const searchPayTo = async (query: string) => {
-    if (!query) return setPayToResults([]);
-
-    const res = await fetch(`/api/payment-to/search?q=${query}&orgId=${orgId}`);
-    const data = await res.json();
-
-    setPayToResults(data.data || []);
   };
 
   const fetchTransactions = async () => {
@@ -133,6 +119,17 @@ export default function PaymentForm({ id }: { id?: string }) {
       const data = await res.json();
 
       setForm(data?.data || data || {});
+
+      const requestNo = data?.data?.requestNo || data?.requestNo;
+      if (requestNo && orgId) {
+        const docsRes = await fetch(
+          `/api/fund-request/documents?requestNo=${requestNo}&orgId=${orgId}`,
+        );
+        if (docsRes.ok) {
+          const docsData = await docsRes.json();
+          setDocs(docsData.data || []);
+        }
+      }
     } catch (err) {
       console.error("Failed to load payment", err);
     }
@@ -200,90 +197,6 @@ export default function PaymentForm({ id }: { id?: string }) {
     fetchTransactions();
   };
 
-  const renderUserSearch = (field: string, label: string, readOnly = false) => (
-    <div className="relative">
-      <Label>{label}</Label>
-
-      <Input
-        readOnly={readOnly}
-        className={readOnly ? "bg-gray-100 mt-2" : "mt-2"}
-        value={form[field] || ""}
-        onChange={(e) => {
-          const value = e.target.value;
-
-          setForm({
-            ...form,
-            [field]: value,
-          });
-
-          searchUsers(value);
-        }}
-      />
-
-      {!readOnly && userResults.length > 0 && (
-        <div className="absolute z-50 bg-white border rounded-md shadow-md max-h-48 overflow-y-auto w-full">
-          {userResults.map((user: any) => (
-            <div
-              key={user._id}
-              className="p-2 hover:bg-gray-100 cursor-pointer"
-              onClick={() => {
-                setForm({
-                  ...form,
-                  [field]: user.name,
-                });
-
-                setUserResults([]);
-              }}
-            >
-              {user.name}
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-
-  const renderPayToSearch = () => (
-    <div className="relative">
-      <Label>Paid To</Label>
-
-      <Input
-        value={txnForm.paidTo || ""}
-        onChange={(e) => {
-          const value = e.target.value;
-
-          setTxnForm({
-            ...txnForm,
-            paidTo: value,
-          });
-
-          searchPayTo(value);
-        }}
-      />
-
-      {payToResults.length > 0 && (
-        <div className="absolute z-50 bg-white border rounded-md shadow-md max-h-48 overflow-y-auto w-full">
-          {payToResults.map((payTo: any) => (
-            <div
-              key={payTo._id}
-              className="p-2 hover:bg-gray-100 cursor-pointer"
-              onClick={() => {
-                setTxnForm({
-                  ...txnForm,
-                  paidTo: payTo.name,
-                });
-
-                setPayToResults([]);
-              }}
-            >
-              {payTo.name}
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-
   const balanceAmount = useMemo(() => {
     const requestAmount = Number(form.requestAmount || 0);
 
@@ -322,7 +235,7 @@ export default function PaymentForm({ id }: { id?: string }) {
       {/* MAIN LAYOUT */}
       <div className="grid grid-cols-1 xl:grid-cols-[7fr_3fr] gap-8 mt-6">
         {/* LEFT SIDE */}
-        <div className="grid grid-cols-[30%_70%] gap-6">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-[30%_70%]">
           {/* GENERIC SECTION */}
           <div className="border rounded-2xl p-5 shadow-sm space-y-5 h-fit">
             <h2 className="font-semibold text-gray-700 text-lg">
@@ -376,7 +289,16 @@ export default function PaymentForm({ id }: { id?: string }) {
             <div>
               <Label>Payment To</Label>
 
-              {renderUserSearch("paymentTo", "")}
+              <div>
+                <Label>Payment To</Label>
+                <UserSearch
+                  orgId={orgId}
+                  value={form.paymentTo}
+                  onSelect={(user) =>
+                    setForm({ ...form, paymentTo: user.employeeName })
+                  }
+                />
+              </div>
             </div>
 
             <div>
@@ -526,7 +448,7 @@ export default function PaymentForm({ id }: { id?: string }) {
               </div>
 
               {/* AMOUNTS */}
-              <div className="grid grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                 <div>
                   <Label>Request Amount</Label>
 
@@ -562,6 +484,40 @@ export default function PaymentForm({ id }: { id?: string }) {
                   />
                 </div>
 
+                {/* DOCUMENTS */}
+                <div className="md:col-span-2">
+                  <Label>Relevant Documents</Label>
+
+                  {docs.length === 0 ? (
+                    <p className="text-sm text-slate-500 mt-2">No documents</p>
+                  ) : (
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {docs.map((doc) => {
+                        const isImage = doc.fileType.startsWith("image/");
+                        return (
+                          <div
+                            key={doc._id}
+                            className="border rounded-md p-2 bg-white flex items-center gap-2 max-w-[200px]"
+                          >
+                            {isImage ? (
+                              <img
+                                src={doc.filePath}
+                                alt={doc.fileName}
+                                className="h-12 w-12 object-cover rounded"
+                              />
+                            ) : (
+                              <FileText className="h-6 w-6 text-slate-400 flex-shrink-0" />
+                            )}
+                            <span className="text-xs text-slate-700 truncate">
+                              {doc.fileName}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
                 <div>
                   <Label>Paid Amount</Label>
 
@@ -590,9 +546,16 @@ export default function PaymentForm({ id }: { id?: string }) {
                 </h2>
               </div>
 
-              <div className="grid grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
                 <div>
-                  {renderUserSearch("requestedBy", "Requested By", true)}
+                  <div>
+                <Label>Requested By</Label>
+                <Input
+                  readOnly
+                  className="bg-gray-100 mt-2"
+                  value={form.requestedBy || ""}
+                />
+              </div>
                 </div>
 
                 <div>
@@ -629,7 +592,14 @@ export default function PaymentForm({ id }: { id?: string }) {
                   </div>
                 </div>
 
-                <div>{renderUserSearch("approvedBy", "Approved By", true)}</div>
+                <div>
+                <Label>Approved By</Label>
+                <Input
+                  readOnly
+                  className="bg-gray-100 mt-2"
+                  value={form.approvedBy || ""}
+                />
+              </div>
 
                 <div>
                   <Label>Approved Date</Label>
@@ -654,9 +624,14 @@ export default function PaymentForm({ id }: { id?: string }) {
                   </div>
                 </div>
 
-                <div>
-                  {renderUserSearch("authorizedBy", "Authorized By", true)}
-                </div>
+<div>
+                <Label>Authorized By</Label>
+                <Input
+                  readOnly
+                  className="bg-gray-100 mt-2"
+                  value={form.authorizedBy || ""}
+                />
+              </div>
 
                 <div>
                   <Label>Authorized Date</Label>
@@ -681,7 +656,7 @@ export default function PaymentForm({ id }: { id?: string }) {
                 </h2>
               </div>
 
-              <div className="grid grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                 <div>
                   <Label>Tender No</Label>
 
@@ -774,7 +749,7 @@ export default function PaymentForm({ id }: { id?: string }) {
               {/* TXN FORM */}
               {showTxnForm && (
                 <div className="border rounded-xl p-5 bg-gray-50 space-y-5">
-                  <div className="grid grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                     <div>
                       <Label>Amount</Label>
                       <AmountToWords
@@ -826,9 +801,20 @@ export default function PaymentForm({ id }: { id?: string }) {
                       </select>
                     </div>
 
-                    <div>{renderPayToSearch()}</div>
+                    <div>
+                      <PaymentToSearch
+                        orgId={orgId}
+                        value={txnForm.paidTo}
+                        onSelect={(item) => {
+                          setTxnForm({
+                            ...txnForm,
+                            paidTo: item.name,
+                          });
+                        }}
+                      />
+                    </div>
 
-                    <div className="col-span-2">
+                    <div className="md:col-span-2">
                       <Label>Transaction Note</Label>
 
                       <Textarea
