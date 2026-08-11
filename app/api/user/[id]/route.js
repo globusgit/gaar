@@ -3,7 +3,7 @@ import connectDB from "@/lib/mongoose";
 import User from "@/models/User";
 import { logActivity } from "@/lib/activityLog";
 import { requireAuth, requireOrgScope, hasModuleAccess, canAssignRole, canManageRole } from "@/lib/apiGuard";
-import { normalizeUserModules } from "@/lib/userModules";
+import { BASIC_USER_MODULES, normalizeUserModules } from "@/lib/userModules";
 
 export async function GET(req, { params }) {
   const token = await requireAuth(req);
@@ -94,6 +94,11 @@ export async function PUT(req, { params }) {
       if (field in body) {
         updateData[field] = body[field];
       }
+    }
+
+    const effectiveRole = updateData.role || existing.role;
+    if (effectiveRole === "USER") {
+      updateData.modules = BASIC_USER_MODULES;
     }
 
     const updated = await User.findOneAndUpdate(

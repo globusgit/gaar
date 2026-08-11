@@ -6,6 +6,7 @@ import User from "@/models/User";
 import Employee from "@/models/Employee";
 import Organization from "@/models/Organization";
 import { rateLimit, rateLimitKey } from "@/lib/rateLimit";
+import { getEffectiveUserModules } from "@/lib/userModules";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
@@ -81,9 +82,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           role: effectiveRole,
           designation: employee?.designation || "",
           orgId: user.orgId?.toString(),
-          modules: Array.isArray(user.modules)
-            ? (user.modules as unknown as string[]).map((m: string) => String(m))
-            : [],
+          modules: getEffectiveUserModules(effectiveRole, user.modules),
           isFirstLogin: user.isFirstLogin,
         };
       },
@@ -117,9 +116,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (currentUser && currentUser.status === "Active") {
           token.role = currentUser.role;
           token.orgId = currentUser.orgId;
-          token.modules = Array.isArray(currentUser.modules)
-            ? currentUser.modules.map((module: unknown) => String(module))
-            : [];
+          token.modules = getEffectiveUserModules(currentUser.role, currentUser.modules);
           token.isFirstLogin = currentUser.isFirstLogin;
         }
       }

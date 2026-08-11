@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import connectDB from "@/lib/mongoose";
 import User from "@/models/User";
 import { requireAuth, requireOrgScope, sanitizeRegex, sanitizeSortField } from "@/lib/apiGuard";
+import { BASIC_USER_MODULES } from "@/lib/userModules";
 
 const ORG_USER_DEFAULT_MODULES = [
   "dashboard",
@@ -46,6 +47,14 @@ export async function GET(req) {
 
     if (user.role === "SYS_ADMIN" && (!Array.isArray(user.modules) || user.modules.length === 0)) {
       user.modules = ORG_USER_DEFAULT_MODULES;
+      await user.save();
+    }
+
+    if (
+      user.role === "USER" &&
+      JSON.stringify(user.modules || []) !== JSON.stringify(BASIC_USER_MODULES)
+    ) {
+      user.modules = BASIC_USER_MODULES;
       await user.save();
     }
 

@@ -10,6 +10,8 @@ interface VerticalWithSubs extends ListDef {
   subVerticals?: string[];
 }
 
+export const MASTER_LIST_TEMPLATE_ORG_ID = "ORG1";
+
 const VERTICAL_DEFS: VerticalWithSubs[] = [
   {
     listName: "VERTICAL",
@@ -42,23 +44,37 @@ const DEFAULT_LISTS: ListDef[] = [
 export async function seedSystemLists(orgId: string) {
   await connectDB();
 
-  const entries: { listName: string; listItem: string; orgId: string; status: string }[] = [];
+  const templateItems = orgId === MASTER_LIST_TEMPLATE_ORG_ID
+    ? []
+    : await SystemList.find({ orgId: MASTER_LIST_TEMPLATE_ORG_ID })
+        .select("listName listItem status -_id")
+        .lean();
 
-  for (const list of DEFAULT_LISTS) {
-    for (const item of list.items) {
-      entries.push({ listName: list.listName, listItem: item, orgId, status: "Active" });
+  const entries: { listName: string; listItem: string; orgId: string; status: string }[] =
+    templateItems.map((item) => ({
+      listName: item.listName,
+      listItem: item.listItem,
+      orgId,
+      status: item.status || "Active",
+    }));
+
+  if (entries.length === 0) {
+    for (const list of DEFAULT_LISTS) {
+      for (const item of list.items) {
+        entries.push({ listName: list.listName, listItem: item, orgId, status: "Active" });
+      }
     }
-  }
 
-  for (const vertical of VERTICAL_DEFS) {
-    for (const item of vertical.items) {
-      entries.push({ listName: vertical.listName, listItem: item, orgId, status: "Active" });
-    }
+    for (const vertical of VERTICAL_DEFS) {
+      for (const item of vertical.items) {
+        entries.push({ listName: vertical.listName, listItem: item, orgId, status: "Active" });
+      }
 
-    if (vertical.subVerticals) {
-      for (const sub of vertical.subVerticals) {
-        for (const parent of vertical.items) {
-          entries.push({ listName: parent, listItem: sub, orgId, status: "Active" });
+      if (vertical.subVerticals) {
+        for (const sub of vertical.subVerticals) {
+          for (const parent of vertical.items) {
+            entries.push({ listName: parent, listItem: sub, orgId, status: "Active" });
+          }
         }
       }
     }

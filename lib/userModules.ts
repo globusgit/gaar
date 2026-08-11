@@ -18,6 +18,13 @@ export const USER_MODULES = [
 
 export type UserModule = (typeof USER_MODULES)[number];
 
+export const BASIC_USER_MODULES: UserModule[] = [
+  "dashboard",
+  "fund-request",
+  "payments",
+  "settings",
+];
+
 const USER_MODULE_SET = new Set<string>(USER_MODULES);
 
 export function normalizeUserModules(value: unknown): UserModule[] | null {
@@ -27,4 +34,9 @@ export function normalizeUserModules(value: unknown): UserModule[] | null {
   if (modules.some((module) => !USER_MODULE_SET.has(module))) return null;
 
   return modules as UserModule[];
+}
+
+export function getEffectiveUserModules(role: string, value: unknown): UserModule[] {
+  if (role === "USER") return [...BASIC_USER_MODULES];
+  return normalizeUserModules(value) ?? [];
 }

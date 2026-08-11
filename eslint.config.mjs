@@ -32,6 +32,7 @@ const eslintConfig = defineConfig([
     files: ["tests/**/*.test.ts", "tests/**/*.spec.ts", "scripts/**/*.js", "lib/**/*.test.ts", "lib/**/*.spec.ts"],
     rules: {
       "@typescript-eslint/no-explicit-any": "off",
+      "@typescript-eslint/no-require-imports": "off",
       "@typescript-eslint/no-unused-vars": "off",
     },
   },

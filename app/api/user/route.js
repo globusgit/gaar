@@ -6,7 +6,7 @@ import bcrypt from "bcryptjs";
 import { logActivity } from "@/lib/activityLog";
 import { notifyOrg } from "@/lib/notification";
 import { requireAuth, hasModuleAccess, canAssignRole, sanitizeRegex, sanitizeSortField } from "@/lib/apiGuard";
-import { normalizeUserModules } from "@/lib/userModules";
+import { getEffectiveUserModules, normalizeUserModules } from "@/lib/userModules";
 
 const ASSIGNABLE_ROLES = new Set(["ADMIN", "ORG_USER", "USER", "MANAGER", "ACCOUNTANT", "ACCOUNTS"]);
 
@@ -116,7 +116,7 @@ export async function POST(req){
       role: body.role,
       isFirstLogin: true,
       orgId: orgId,
-      modules,
+      modules: getEffectiveUserModules(body.role, modules),
     });
     const createdUser = await User.create(newUser);
 

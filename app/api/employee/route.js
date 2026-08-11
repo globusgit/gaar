@@ -58,7 +58,7 @@ function getDefaultModules(role) {
     case "ORG_USER":
       return ALL_MODULES;
     default:
-      return ["dashboard", "fund-request", "settings"];
+      return ["dashboard", "fund-request", "payments", "settings"];
   }
 }
 
@@ -119,6 +119,41 @@ export async function POST(req) {
     const formData = await req.formData();
     const file = formData.get("photo");
 
+    const modulesValue = formData.getAll("modules");
+    const modules = modulesValue.filter(Boolean);
+    const requestedOrgId = formData.get("orgId");
+    const orgId = token.role === "SYS_ADMIN" && requestedOrgId
+      ? requestedOrgId
+      : token.orgId;
+    const empId = (formData.get("employeeId") || "").toString().trim();
+    const phone = (formData.get("phone") || "").toString().trim();
+
+    const duplicateEmployee = await Employee.findOne({
+      orgId,
+      $or: [{ empId }, { phone }],
+    }).select("empId phone").lean();
+
+    if (duplicateEmployee) {
+      const duplicateField = duplicateEmployee.phone === phone
+        ? "phone number"
+        : "employee ID";
+      return NextResponse.json(
+        { message: `An employee with this ${duplicateField} already exists in this organization.` },
+        { status: 409 },
+      );
+    }
+
+    let requestedRole = "USER";
+    if (formData.get("isManager") === "true") requestedRole = "MANAGER";
+    if (formData.get("designation") === "Director") requestedRole = "ADMIN";
+    if (formData.get("designation") === "ACCOUNTANT") requestedRole = "ACCOUNTANT";
+    if (!canAssignRole(token, requestedRole)) {
+      return NextResponse.json(
+        { message: "You cannot create an employee with a role above your own authority" },
+        { status: 403 },
+      );
+    }
+
     let fileName = "default-avatar.jpg";
     if (file && typeof file !== "string") {
       if (!fs.existsSync(/* turbopackIgnore: true */ EMPLOYEE_UPLOAD_DIR)) {
@@ -133,28 +168,10 @@ export async function POST(req) {
       fs.writeFileSync(/* turbopackIgnore: true */ filePath, buffer);
     }
 
-    const modulesValue = formData.getAll("modules");
-    const modules = modulesValue.filter(Boolean);
-    const requestedOrgId = formData.get("orgId");
-    const orgId = token.role === "SYS_ADMIN" && requestedOrgId
-      ? requestedOrgId
-      : token.orgId;
-
-    let requestedRole = "USER";
-    if (formData.get("isManager") === "true") requestedRole = "MANAGER";
-    if (formData.get("designation") === "Director") requestedRole = "ADMIN";
-    if (formData.get("designation") === "ACCOUNTANT") requestedRole = "ACCOUNTANT";
-    if (!canAssignRole(token, requestedRole)) {
-      return NextResponse.json(
-        { message: "You cannot create an employee with a role above your own authority" },
-        { status: 403 },
-      );
-    }
-
     const emp = await Employee.create({
       name: formData.get("name"),
-      empId: (formData.get("employeeId") || "").toString().trim(),
-      phone: formData.get("phone"),
+      empId,
+      phone,
       email: formData.get("email"),
       designation: formData.get("designation"),
       isManager: formData.get("isManager") === "true",
@@ -211,6 +228,13 @@ export async function POST(req) {
     return NextResponse.json({ message: "Employee created successfully" }, { status: 201 });
   } catch (err) {
     console.error("Employee creation error:", err);
+    if (err?.code === 11000) {
+      const duplicateField = err?.keyPattern?.phone ? "phone number" : "employee ID";
+      return NextResponse.json(
+        { message: `An employee with this ${duplicateField} already exists in this organization.` },
+        { status: 409 },
+      );
+    }
     return NextResponse.json(
       { message: "Failed to create employee" },
       { status: 500 },
